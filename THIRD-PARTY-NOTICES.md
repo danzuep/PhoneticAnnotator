@@ -2,12 +2,10 @@
 
 ## Unihan data
 
-This repository bundles `data/Unihan_Readings.txt`, the Unicode 16.0.0 Unihan readings
+This repository bundles `data/Unihan_Readings.txt`, the Unicode 18.0.0 Unihan readings
 data file. Its original header is preserved.
 
-Official release archive: https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip
-
-Optional draft property-review repository: https://github.com/unicode-org/unihan-database
+Official release archive: https://www.unicode.org/Public/18.0.0/ucd/Unihan.zip
 
 UNICODE LICENSE V3
 

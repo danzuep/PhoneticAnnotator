@@ -17,7 +17,7 @@
 - [x] Verify the loaded Unihan -> language strategy -> AST -> JSON path for Mandarin, Jyutping, and Japanese fixtures.
 - [x] Support paired-pronunciation AST output and verify Arabic Tashkeel through an injected fixture strategy.
 - [x] Add a CLI workflow that reads a caller-supplied Unihan stream and renders HTML, Anki, or JSON.
-- [x] Run the CLI against the local Unicode 16.0.0 snapshot for Mandarin, Jyutping, and Japanese; preserve ambiguous Japanese readings as unresolved.
+- [x] Run the CLI against the local Unicode 18.0.0 snapshot for Mandarin, Jyutping, and Japanese; preserve ambiguous Japanese readings as unresolved.
 - [x] Preserve the third-party MIT notice for the local Unihan code separately from data licensing.
 
 ## Future Work
@@ -25,9 +25,8 @@
 - [x] Add a strategy factory with language and preferred-strategy registration/resolution.
 - [x] Add a cancellation-aware Unihan stream loader that filters requested fields without taking ownership of the caller's stream.
 - [x] Accept both release-format Unihan rows and draft-review rows with the ideograph in the first column.
-- [x] Copy Unicode 16.0.0 `Unihan_Readings.txt` into `data/`, preserve its original license header, and use it in the CLI workflow.
+- [x] Add `scripts/update-unihan.ps1` to download the official Unicode 18.0.0 archive, verify its version header, and safely refresh `data/Unihan_Readings.txt`.
 - [ ] Review property-specific source terms, including Japanese readings, before redistributing any derived data.
-- [ ] Optionally add https://github.com/unicode-org/unihan-database as a Git submodule for reviewing provisional property updates; it is not a complete release snapshot. Keep ordinary builds working without initializing the submodule.
 - [ ] Expand language-specific partial alignment policies for broader Japanese and mixed-script text; keep spans out of async state and retained AST data.
 - [ ] Add provider-backed word tokenization and contextual disambiguation for Japanese, Mandarin, and Cantonese/Jyutping.
 - [ ] Select and integrate a production Arabic Tashkeel provider/data source; the current test uses an injected fixture only.
