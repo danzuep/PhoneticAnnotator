@@ -17,6 +17,7 @@
 - [x] Verify the loaded Unihan -> language strategy -> AST -> JSON path for Mandarin, Jyutping, and Japanese fixtures.
 - [x] Support paired-pronunciation AST output and verify Arabic Tashkeel through an injected fixture strategy.
 - [x] Add a CLI workflow that reads a caller-supplied Unihan stream and renders HTML, Anki, or JSON.
+- [x] Run the CLI against the local Unicode 16.0.0 snapshot for Mandarin, Jyutping, and Japanese; preserve ambiguous Japanese readings as unresolved.
 - [x] Preserve the third-party MIT notice for the local Unihan code separately from data licensing.
 
 ## Future Work
