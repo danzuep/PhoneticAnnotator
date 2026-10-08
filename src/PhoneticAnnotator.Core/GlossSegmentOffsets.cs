@@ -3,11 +3,17 @@ namespace PhoneticAnnotator.Core;
 /// <summary>
 /// Stackalloc-friendly offsets for a source segment and its corresponding reading.
 /// </summary>
+/// <param name="BaseStartIndex">The segment's start in the source text, in UTF-16 code units.</param>
+/// <param name="BaseLength">The source segment's length in UTF-16 code units.</param>
+/// <param name="GlossStartIndex">The segment's start in the complete reading, in UTF-16 code units.</param>
+/// <param name="GlossLength">The reading segment's length in UTF-16 code units.</param>
+/// <param name="IsAnnotated">Whether the segment should be rendered with a reading annotation.</param>
 public readonly record struct GlossSegmentOffsets(
     int BaseStartIndex,
     int BaseLength,
     int GlossStartIndex,
-    int GlossLength);
+    int GlossLength,
+    bool IsAnnotated = true);
 
 /// <summary>
 /// Aligns source text and a complete reading into caller-provided span segments.
@@ -22,6 +28,7 @@ public interface ISpanPhoneticAligner
     /// <summary>
     /// Writes aligned offsets without allocating managed result objects.
     /// Slice the input spans with the returned offsets to access each segment.
+    /// The segments must partition the complete source and reading in order; unannotated segments still consume their reading offsets.
     /// </summary>
     /// <param name="baseText">The source text.</param>
     /// <param name="fullReading">The complete reading for the source text.</param>

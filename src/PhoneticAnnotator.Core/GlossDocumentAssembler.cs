@@ -123,18 +123,27 @@ public static class GlossDocumentAssembler
                 if (segment.BaseStartIndex != nextBaseIndex
                     || segment.GlossStartIndex != nextGlossIndex
                     || segment.BaseLength <= 0
-                    || segment.GlossLength <= 0
+                    || segment.GlossLength < 0
+                    || (segment.IsAnnotated && segment.GlossLength == 0)
                     || segment.BaseLength > baseText.Length - segment.BaseStartIndex
                     || segment.GlossLength > fullReading.Length - segment.GlossStartIndex)
                 {
                     throw new InvalidOperationException("Alignment segments must partition the source and reading in order.");
                 }
 
-                children.Add(new RubyNode(
-                    baseText.Slice(segment.BaseStartIndex, segment.BaseLength).ToString(),
-                    fullReading.Slice(segment.GlossStartIndex, segment.GlossLength).ToString(),
-                    token.Language,
-                    token.ReadingSystem));
+                var segmentBaseText = baseText.Slice(segment.BaseStartIndex, segment.BaseLength).ToString();
+                if (segment.IsAnnotated)
+                {
+                    children.Add(new RubyNode(
+                        segmentBaseText,
+                        fullReading.Slice(segment.GlossStartIndex, segment.GlossLength).ToString(),
+                        token.Language,
+                        token.ReadingSystem));
+                }
+                else
+                {
+                    children.Add(new TextNode(segmentBaseText));
+                }
                 nextBaseIndex += segment.BaseLength;
                 nextGlossIndex += segment.GlossLength;
             }

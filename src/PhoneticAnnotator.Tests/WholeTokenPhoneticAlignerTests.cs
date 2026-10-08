@@ -19,6 +19,7 @@ public sealed class WholeTokenPhoneticAlignerTests
         Assert.Equal("qiū jiǎ", reading.Slice(destination[0].GlossStartIndex, destination[0].GlossLength).ToString());
         Assert.Equal(0, destination[0].BaseStartIndex);
         Assert.Equal(3, destination[0].BaseLength);
+        Assert.True(destination[0].IsAnnotated);
     }
 
     [Fact]

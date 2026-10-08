@@ -37,6 +37,33 @@ public sealed class GlossDocumentAssemblerTests
             });
     }
 
+    [Fact]
+    public async Task AssembleAsync_JapaneseOkuriganaLeavesMatchedKanaAsPlainText()
+    {
+        var language = new LanguageCode("ja-JP");
+        var token = new MemoryToken(
+            "食べる".AsMemory(),
+            0,
+            language,
+            ReadingSystem.JapaneseKana,
+            ["たべる"]);
+
+        var document = await GlossDocumentAssembler.AssembleAsync(
+            OneTokenAsync(token),
+            new CandidateOnlyDisambiguator(),
+            new JapaneseOkuriganaAligner());
+
+        Assert.Collection(
+            document.Children,
+            node =>
+            {
+                var ruby = Assert.IsType<RubyNode>(node);
+                Assert.Equal("食", ruby.BaseText);
+                Assert.Equal("た", ruby.GlossText);
+            },
+            node => Assert.Equal("べる", Assert.IsType<TextNode>(node).Value));
+    }
+
     private static async IAsyncEnumerable<MemoryToken> OneTokenAsync(
         MemoryToken token,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
