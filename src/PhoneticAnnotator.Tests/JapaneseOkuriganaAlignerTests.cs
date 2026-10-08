@@ -36,4 +36,27 @@ public sealed class JapaneseOkuriganaAlignerTests
         Assert.Equal(baseText.Length, destination[0].BaseLength);
         Assert.Equal(reading.Length, destination[0].GlossLength);
     }
+
+    [Fact]
+    public void AlignToSpan_MixedScriptOkuriganaMatchesAcrossHiraganaAndKatakana()
+    {
+        var aligner = new JapaneseOkuriganaAligner();
+        ReadOnlySpan<char> baseText = "日本語かな";
+        ReadOnlySpan<char> reading = "ニホンゴカナ";
+        Span<GlossSegmentOffsets> destination = stackalloc GlossSegmentOffsets[5];
+
+        var count = aligner.AlignToSpan(baseText, reading, destination);
+
+        Assert.Equal(2, count);
+        Assert.Equal(0, destination[0].BaseStartIndex);
+        Assert.Equal(3, destination[0].BaseLength);
+        Assert.Equal(0, destination[0].GlossStartIndex);
+        Assert.Equal(4, destination[0].GlossLength);
+        Assert.True(destination[0].IsAnnotated);
+        Assert.Equal(3, destination[1].BaseStartIndex);
+        Assert.Equal(2, destination[1].BaseLength);
+        Assert.Equal(4, destination[1].GlossStartIndex);
+        Assert.Equal(2, destination[1].GlossLength);
+        Assert.False(destination[1].IsAnnotated);
+    }
 }

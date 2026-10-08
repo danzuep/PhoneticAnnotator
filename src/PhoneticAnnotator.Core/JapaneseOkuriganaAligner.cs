@@ -4,7 +4,7 @@ using System.Text;
 namespace PhoneticAnnotator.Core;
 
 /// <summary>
-/// Aligns unique literal kana runs as plain text and pairs the intervening kanji with readings.
+/// Aligns unique kana runs as plain text and pairs the intervening kanji with readings.
 /// </summary>
 public sealed class JapaneseOkuriganaAligner : ISpanPhoneticAligner
 {
@@ -53,15 +53,11 @@ public sealed class JapaneseOkuriganaAligner : ISpanPhoneticAligner
             }
 
             var kana = baseText[kanaStart..scanIndex];
-            var remainingReading = fullReading[glossCursor..];
-            var relativeMatch = remainingReading.IndexOf(kana, StringComparison.Ordinal);
-            if (relativeMatch < 0
-                || remainingReading[(relativeMatch + kana.Length)..].IndexOf(kana, StringComparison.Ordinal) >= 0)
+            if (!TryFindUniqueKanaMatch(fullReading, glossCursor, kana, out var matchedReadingStart))
             {
                 return WriteWholeToken(baseText, fullReading, destinationBuffer);
             }
 
-            var matchedReadingStart = glossCursor + relativeMatch;
             var basePrefixLength = kanaStart - baseCursor;
             var glossPrefixLength = matchedReadingStart - glossCursor;
             if (basePrefixLength == 0 && glossPrefixLength > 0)
@@ -167,6 +163,59 @@ public sealed class JapaneseOkuriganaAligner : ISpanPhoneticAligner
         Rune.DecodeFromUtf16(text[startIndex..], out _, out var consumed) == OperationStatus.Done
             ? consumed
             : 1;
+
+    private static bool TryFindUniqueKanaMatch(
+        ReadOnlySpan<char> fullReading,
+        int startIndex,
+        ReadOnlySpan<char> kana,
+        out int matchStart)
+    {
+        matchStart = -1;
+        for (var candidateIndex = startIndex; candidateIndex < fullReading.Length;)
+        {
+            if (TryReadKana(fullReading, candidateIndex, out _)
+                && KanaEquals(fullReading[candidateIndex..], kana))
+            {
+                if (matchStart >= 0)
+                {
+                    matchStart = -1;
+                    return false;
+                }
+
+                matchStart = candidateIndex;
+            }
+
+            candidateIndex += GetRuneLength(fullReading, candidateIndex);
+        }
+
+        return matchStart >= 0;
+    }
+
+    private static bool KanaEquals(ReadOnlySpan<char> candidate, ReadOnlySpan<char> expected)
+    {
+        var candidateIndex = 0;
+        var expectedIndex = 0;
+        while (expectedIndex < expected.Length)
+        {
+            if (candidateIndex >= candidate.Length
+                || Rune.DecodeFromUtf16(candidate[candidateIndex..], out var candidateRune, out var candidateLength) != OperationStatus.Done
+                || Rune.DecodeFromUtf16(expected[expectedIndex..], out var expectedRune, out var expectedLength) != OperationStatus.Done
+                || NormalizeKana(candidateRune.Value) != NormalizeKana(expectedRune.Value))
+            {
+                return false;
+            }
+
+            candidateIndex += candidateLength;
+            expectedIndex += expectedLength;
+        }
+
+        return true;
+    }
+
+    private static int NormalizeKana(int value) =>
+        value is >= 0x30A1 and <= 0x30F6 or >= 0x30FD and <= 0x30FE
+            ? value - 0x60
+            : value;
 
     private static bool TryReadKana(ReadOnlySpan<char> text, int startIndex, out int consumed)
     {

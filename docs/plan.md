@@ -12,7 +12,7 @@
 - [x] Serialize all AST node types to JSON with language, reading-system, and source-field metadata.
 - [x] Define a zero-allocation span alignment API with stackalloc-friendly offset segments and explicit destination-capacity behavior.
 - [x] Connect alignment output to AST assembly while keeping span processing synchronous.
-- [x] Add conservative Japanese okurigana alignment that falls back to whole-token annotation when kana matching is uncertain.
+- [x] Add conservative Japanese okurigana alignment with hiragana/katakana matching and whole-token fallback when uncertain.
 - [x] Cover supplementary-plane offsets, malformed UTF-16, cancellation, field selection, ambiguity, and rendering with focused tests.
 - [x] Verify the loaded Unihan -> language strategy -> AST -> JSON path for Mandarin, Jyutping, and Japanese fixtures.
 - [x] Support paired-pronunciation AST output and verify Arabic Tashkeel through an injected fixture strategy.
