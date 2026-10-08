@@ -49,6 +49,18 @@ public sealed class UnihanLookupLoaderTests
     }
 
     [Fact]
+    public async Task LoadAsync_AcceptsReviewRowsWithCharacterInFirstColumn()
+    {
+        const string data = "U+4E95 井\tkCantonese\tzeng2\n";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(data));
+
+        var lookup = await UnihanLookupLoader.LoadAsync(stream, [UnihanField.kCantonese]);
+
+        Assert.True(lookup.TryGetValue(0x4E95, out var fields));
+        Assert.Equal(new[] { "zeng2" }, fields[UnihanField.kCantonese]);
+    }
+
+    [Fact]
     public async Task LoadAsync_WhenCancelled_ThrowsAndLeavesInputOpen()
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("U+4E00\tkMandarin\tyī\n"));

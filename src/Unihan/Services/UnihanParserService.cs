@@ -164,10 +164,15 @@ namespace Unihan.Services
             if (text.Length == 0 || text.StartsWith("#", StringComparison.Ordinal))
                 return false; // skip empty or comment lines
 
-            // Expected format: U+XXXX<TAB>field<TAB>value
+            // Accept release rows (U+XXXX<TAB>field<TAB>value) and review rows
+            // (U+XXXX ideograph<TAB>field<TAB>value).
             parts = text.Split('\t');
             if (parts == null || parts.Length < UnihanColumns)
                 return false; // malformed line, skip
+
+            var codepointSeparator = parts[0].IndexOf(' ');
+            if (codepointSeparator > 0)
+                parts[0] = parts[0][..codepointSeparator];
 
             return true;
         }
