@@ -25,7 +25,9 @@ static async Task<int> RunAsync(string[] arguments)
 		var format = options.GetValueOrDefault("--format", "html");
 
 		using var dataStream = File.OpenRead(dataPath);
-		var lookup = await UnihanLookupLoader.LoadAsync(dataStream).ConfigureAwait(false);
+		var lookup = Path.GetExtension(dataPath).Equals(".zip", StringComparison.OrdinalIgnoreCase)
+			? await UnihanArchiveLoader.LoadAsync(dataStream).ConfigureAwait(false)
+			: await UnihanLookupLoader.LoadAsync(dataStream).ConfigureAwait(false);
 		var factory = new TokenizerStrategyFactory();
 		UnihanStrategyRegistration.RegisterFallbacks(
 			factory,
@@ -105,4 +107,4 @@ static bool TryParseArguments(
 }
 
 static void PrintUsage() =>
-	Console.Error.WriteLine("Usage: PhoneticAnnotator.Cli --data <Unihan_Readings.txt> --language <zh-CN|zh-HK|ja-JP> --text <text> [--format html|anki|json]");
+	Console.Error.WriteLine("Usage: PhoneticAnnotator.Cli --data <Unihan.zip|Unihan_Readings.txt> --language <zh-CN|zh-HK|ja-JP> --text <text> [--format html|anki|json]");

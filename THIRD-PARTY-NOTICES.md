@@ -2,7 +2,12 @@
 
 ## Unihan data
 
-https://github.com/unicode-org/unihan-database
+This repository does not bundle Unicode Unihan data. The CLI accepts a caller-supplied
+Unicode 18.0.0 UCD archive or extracted readings file.
+
+Official release archive: https://www.unicode.org/Public/18.0.0/ucd/Unihan.zip
+
+Optional draft property-review repository: https://github.com/unicode-org/unihan-database
 
 UNICODE LICENSE V3
 
