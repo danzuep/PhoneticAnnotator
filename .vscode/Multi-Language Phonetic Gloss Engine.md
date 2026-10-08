@@ -2,7 +2,7 @@
 
 ### System Goal
 
-Build a high-performance, modular C# library (.NET 8+) that parses raw text in ideographic/polyphonic languages (Japanese, Chinese, Arabic) and attaches phonetic annotations (Furigana, Pinyin/Zhuyin, Tashkeel). The system must support asynchronous streaming, zero-allocation span parsing, pluggable tokenizer strategies, and visitor-based rendering.
+Build a high-performance, modular C# library (.NET 10+) that parses raw text in ideographic/polyphonic languages (Japanese, Chinese, Arabic) and attaches phonetic annotations (Furigana, Pinyin/Jyutping, Tashkeel). The system must support asynchronous streaming, zero-allocation span parsing, pluggable tokenizer strategies, and visitor-based rendering.
 
 ---
 

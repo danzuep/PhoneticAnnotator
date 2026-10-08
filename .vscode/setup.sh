@@ -26,10 +26,14 @@ dotnet --version
 echo "Initializing project: ${PROJECT_NAME}..."
 
 # 2. Root Directory & Git Repo Setup
-if [ ! -d "${PROJECT_NAME}" ]; then
-    mkdir -p "${PROJECT_NAME}"
+CURRENT_DIR=$(basename "$PWD")
+
+if [ "$CURRENT_DIR" != "${PROJECT_NAME}" ]; then
+    if [ ! -d "${PROJECT_NAME}" ]; then
+        mkdir -p "${PROJECT_NAME}"
+    fi
+    cd "${PROJECT_NAME}"
 fi
-cd "${PROJECT_NAME}"
 
 if [ ! -d ".git" ]; then
     git init
@@ -48,6 +52,24 @@ if [ ! -d ".vscode" ]; then
     ]
 }
 EOF
+fi
+
+if [ -d "src" ]; then
+    echo "'src' directory exists already, aborting setup."
+    exit 1
+fi
+
+# Git ignore file
+if [ ! -f ".gitignore" ]; then
+    curl -sSL https://raw.githubusercontent.com/github/gitignore/main/VisualStudio.gitignore -o .gitignore
+    echo "Downloaded and created .gitignore file."
+fi
+
+# LICENSE creation
+if [ ! -f "LICENSE" ]; then
+    curl -sSL https://raw.githubusercontent.com/licenses/license-templates/master/templates/mit.txt \
+        | sed "s/{{ year }}/$(date +%Y)/g; s/{{ organization }}/${ORG_NAME}/g" > LICENSE
+    echo "Downloaded and created MIT LICENSE file."
 fi
 
 # 4. .NET Project & Solution Setup
@@ -92,7 +114,9 @@ BUILD_PATH="${SLNX_PATH}"
 if [ -f "${SLN_PATH}" ]; then
     BUILD_PATH="${SLN_PATH}"
 fi
-dotnet build "${BUILD_PATH}" --verbosity quiet
+dotnet restore "${BUILD_PATH}" --verbosity minimal
+dotnet build "${BUILD_PATH}" --no-restore
+dotnet test "./tests/${PROJECT_NAME}.Tests/${PROJECT_NAME}.Tests.csproj"
 
 # 6. Git Commit & GitHub Repository Creation
 # Verify Git identity is set; fall back to local defaults if missing
