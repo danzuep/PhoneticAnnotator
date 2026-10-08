@@ -2,10 +2,10 @@
 
 ## Unihan data
 
-This repository does not bundle Unicode Unihan data. The CLI accepts a caller-supplied
-Unicode 18.0.0 UCD archive or extracted readings file.
+This repository bundles `data/Unihan_Readings.txt`, the Unicode 16.0.0 Unihan readings
+data file. Its original header is preserved.
 
-Official release archive: https://www.unicode.org/Public/18.0.0/ucd/Unihan.zip
+Official release archive: https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip
 
 Optional draft property-review repository: https://github.com/unicode-org/unihan-database
 
@@ -13,7 +13,7 @@ UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
 
-Copyright © 2021-2026 Unicode, Inc.
+Copyright © 1991-2026 Unicode, Inc.
 
 NOTICE TO USER: Carefully read the following legal agreement. BY
 DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR

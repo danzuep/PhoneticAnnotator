@@ -24,7 +24,7 @@
 - [x] Add a strategy factory with language and preferred-strategy registration/resolution.
 - [x] Add a cancellation-aware Unihan stream loader that filters requested fields without taking ownership of the caller's stream.
 - [x] Accept both release-format Unihan rows and draft-review rows with the ideograph in the first column.
-- [x] Select Unicode 18.0.0 UCD `Unihan.zip` as a caller-supplied release source and support loading its readings file without bundling the archive.
+- [x] Copy Unicode 16.0.0 `Unihan_Readings.txt` into `data/`, preserve its original license header, and use it in the CLI workflow.
 - [ ] Review property-specific source terms, including Japanese readings, before redistributing any derived data.
 - [ ] Optionally add https://github.com/unicode-org/unihan-database as a Git submodule for reviewing provisional property updates; it is not a complete release snapshot. Keep ordinary builds working without initializing the submodule.
 - [ ] Expand language-specific partial alignment policies for broader Japanese and mixed-script text; keep spans out of async state and retained AST data.
