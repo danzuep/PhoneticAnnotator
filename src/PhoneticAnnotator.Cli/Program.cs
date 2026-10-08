@@ -55,6 +55,7 @@ static async Task<int> RunAsync(string[] arguments)
 		return 0;
 	}
 	catch (Exception exception) when (exception is IOException
+		or InvalidDataException
 		or UnauthorizedAccessException
 		or KeyNotFoundException
 		or ArgumentException)
