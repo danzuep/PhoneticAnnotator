@@ -104,6 +104,28 @@ public interface ITokenizerStrategy
 }
 
 /// <summary>
+/// Registers and resolves tokenizer strategies by language and optional preference.
+/// </summary>
+public interface ITokenizerStrategyFactory
+{
+    /// <summary>
+    /// Gets the preferred registered strategy or the first registered strategy for a language.
+    /// </summary>
+    /// <param name="language">The input language.</param>
+    /// <param name="preferredStrategyName">An optional strategy identifier to select.</param>
+    /// <returns>The selected tokenizer strategy.</returns>
+    /// <exception cref="KeyNotFoundException">No matching strategy is registered.</exception>
+    ITokenizerStrategy GetStrategy(LanguageCode language, string? preferredStrategyName = null);
+
+    /// <summary>
+    /// Registers a strategy. Duplicate strategy identifiers for one language are rejected.
+    /// </summary>
+    /// <param name="strategy">The strategy to register.</param>
+    /// <exception cref="InvalidOperationException">The language already has this strategy identifier.</exception>
+    void RegisterStrategy(ITokenizerStrategy strategy);
+}
+
+/// <summary>
 /// Describes whether a token's reading candidates were resolved.
 /// </summary>
 public enum ReadingResolution
