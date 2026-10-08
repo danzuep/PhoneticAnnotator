@@ -16,7 +16,8 @@
 ## Future Work
 
 - [x] Add a strategy factory with language and preferred-strategy registration/resolution.
-- [ ] Add an explicit Unihan data-loading/bootstrap path and document the dataset version when data assets are selected.
+- [x] Add a cancellation-aware Unihan stream loader that filters requested fields without taking ownership of the caller's stream.
+- [ ] Select a Unihan dataset source, record its version, and preserve required data/source notices before bundling it.
 - [ ] Keep required third-party code notices separate from Unicode data notices; include Unicode License V3 if data is redistributed, and review source terms for the Japanese `kJapanese` field.
 - [ ] Add language-specific partial alignment and connect alignment segments to AST assembly; keep spans out of async state and retained AST data.
 - [ ] Add provider-backed word tokenization and contextual disambiguation for Japanese, Mandarin, and Cantonese/Jyutping.

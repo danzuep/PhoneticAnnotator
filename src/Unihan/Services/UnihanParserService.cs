@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Unihan.Models;
 
@@ -92,14 +93,20 @@ namespace Unihan.Services
             return outputStream;
         }
 
-        public static async Task<T> ParseAsync<T>(Stream stream, IEnumerable<UnihanField>? fields = null)
+        public static async Task<T> ParseAsync<T>(
+            Stream stream,
+            IEnumerable<UnihanField>? fields = null,
+            CancellationToken cancellationToken = default)
             where T : IUnihanReadings, new()
         {
+            if (stream is null)
+                throw new ArgumentNullException(nameof(stream));
+            cancellationToken.ThrowIfCancellationRequested();
+
             var hashtable = fields == null ? null : new HashSet<UnihanField>(fields);
-            using var reader = new StreamReader(stream);
+            using var reader = new StreamReader(stream, Encoding.UTF8, true, 1024, leaveOpen: true);
             var results = new T();
-            await ParseAsync(reader, ParseEntry);
-            stream.Seek(0, SeekOrigin.Begin); // Reset stream position
+            await ParseAsync(reader, ParseEntry, cancellationToken);
             return results;
 
             bool ParseEntry(string line)
@@ -188,14 +195,26 @@ namespace Unihan.Services
         /// </summary>
         /// <param name="reader">The <see cref="StreamReader"/> to read lines from.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="reader"/> is null.</exception>
-        private static async Task ParseAsync(StreamReader reader, Func<string, bool> function)
+        private static async Task ParseAsync(
+            StreamReader reader,
+            Func<string, bool> function,
+            CancellationToken cancellationToken = default)
         {
             if (reader is null)
                 throw new ArgumentNullException(nameof(reader));
 
             string? line;
-            while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
+            while (true)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+#if NET8_0_OR_GREATER
+                line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+#else
+                line = await reader.ReadLineAsync().ConfigureAwait(false);
+#endif
+                if (line == null)
+                    break;
+
                 var continueParsing = function(line);
                 if (!continueParsing)
                 {
