@@ -73,7 +73,7 @@ if [ ! -f "LICENSE" ]; then
 fi
 
 # 4. .NET Project & Solution Setup
-mkdir -p src tests
+mkdir -p src
 
 # Core Library
 if [ ! -d "src/${PROJECT_NAME}.Core" ]; then
@@ -89,9 +89,9 @@ if [ ! -d "src/${PROJECT_NAME}.Cli" ]; then
 fi
 
 # Test Project
-if [ ! -d "tests/${PROJECT_NAME}.Tests" ]; then
-    dotnet new xunit -n "${PROJECT_NAME}.Tests" -o "tests/${PROJECT_NAME}.Tests"
-    dotnet add "tests/${PROJECT_NAME}.Tests" reference "src/${PROJECT_NAME}.Core/${PROJECT_NAME}.Core.csproj"
+if [ ! -d "src/${PROJECT_NAME}.Tests" ]; then
+    dotnet new xunit -n "${PROJECT_NAME}.Tests" -o "src/${PROJECT_NAME}.Tests"
+    dotnet add "src/${PROJECT_NAME}.Tests" reference "src/${PROJECT_NAME}.Core/${PROJECT_NAME}.Core.csproj"
 fi
 
 # Solution File Creation inside src/
@@ -105,7 +105,7 @@ if [ ! -f "${SLNX_PATH}" ] && [ ! -f "${SLN_PATH}" ]; then
 
     dotnet sln add "${PROJECT_NAME}.Core/${PROJECT_NAME}.Core.csproj"
     dotnet sln add "${PROJECT_NAME}.Cli/${PROJECT_NAME}.Cli.csproj"
-    dotnet sln add "../tests/${PROJECT_NAME}.Tests/${PROJECT_NAME}.Tests.csproj"
+    dotnet sln add "${PROJECT_NAME}.Tests/${PROJECT_NAME}.Tests.csproj"
     cd ..
 fi
 
@@ -114,9 +114,9 @@ BUILD_PATH="${SLNX_PATH}"
 if [ -f "${SLN_PATH}" ]; then
     BUILD_PATH="${SLN_PATH}"
 fi
-dotnet restore "${BUILD_PATH}" --verbosity minimal
+dotnet restore "${BUILD_PATH}" --verbosity quiet
 dotnet build "${BUILD_PATH}" --no-restore
-dotnet test "./tests/${PROJECT_NAME}.Tests/${PROJECT_NAME}.Tests.csproj"
+dotnet test "${BUILD_PATH}" --no-build
 
 # 6. Git Commit & GitHub Repository Creation
 # Verify Git identity is set; fall back to local defaults if missing

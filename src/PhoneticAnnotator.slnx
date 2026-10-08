@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="../tests/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj" />
   <Project Path="PhoneticAnnotator.Cli/PhoneticAnnotator.Cli.csproj" />
   <Project Path="PhoneticAnnotator.Core/PhoneticAnnotator.Core.csproj" />
+  <Project Path="PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj" />
 </Solution>
