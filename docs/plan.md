@@ -17,13 +17,13 @@
 - [x] Verify the loaded Unihan -> language strategy -> AST -> JSON path for Mandarin, Jyutping, and Japanese fixtures.
 - [x] Support paired-pronunciation AST output and verify Arabic Tashkeel through an injected fixture strategy.
 - [x] Add a CLI workflow that reads a caller-supplied Unihan stream and renders HTML, Anki, or JSON.
+- [x] Preserve the third-party MIT notice for the local Unihan code separately from data licensing.
 
 ## Future Work
 
 - [x] Add a strategy factory with language and preferred-strategy registration/resolution.
 - [x] Add a cancellation-aware Unihan stream loader that filters requested fields without taking ownership of the caller's stream.
-- [ ] Select a Unihan dataset source, record its version, and preserve required data/source notices before bundling it.
-- [ ] Keep required third-party code notices separate from Unicode data notices; include Unicode License V3 if data is redistributed, and review source terms for the Japanese `kJapanese` field.
+- [ ] Select a Unihan dataset source, record its version, and include Unicode License V3 and property-specific source notices before redistributing data.
 - [ ] Expand language-specific partial alignment policies for broader Japanese and mixed-script text; keep spans out of async state and retained AST data.
 - [ ] Add provider-backed word tokenization and contextual disambiguation for Japanese, Mandarin, and Cantonese/Jyutping.
 - [ ] Select and integrate a production Arabic Tashkeel provider/data source; the current test uses an injected fixture only.
