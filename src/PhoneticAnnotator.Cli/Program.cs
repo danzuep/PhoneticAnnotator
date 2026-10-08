@@ -19,21 +19,34 @@ static async Task<int> RunAsync(string[] arguments)
 
 	try
 	{
-		var dataPath = options["--data"];
 		var language = new LanguageCode(options["--language"]);
 		var text = options["--text"];
 		var format = options.GetValueOrDefault("--format", "html");
 
-		using var dataStream = File.OpenRead(dataPath);
-		var lookup = Path.GetExtension(dataPath).Equals(".zip", StringComparison.OrdinalIgnoreCase)
-			? await UnihanArchiveLoader.LoadAsync(dataStream).ConfigureAwait(false)
-			: await UnihanLookupLoader.LoadAsync(dataStream).ConfigureAwait(false);
-		var factory = new TokenizerStrategyFactory();
-		UnihanStrategyRegistration.RegisterFallbacks(
-			factory,
-			new UnihanCharacterReadingProvider(lookup));
+		ITokenizerStrategy strategy;
+		if (options.TryGetValue("--lexicon", out var lexiconPath))
+		{
+			using var lexiconStream = File.OpenRead(lexiconPath);
+			var lexicon = await WordReadingLexicon.LoadAsync(lexiconStream).ConfigureAwait(false);
+			strategy = new WordLexiconTokenizerStrategy(
+				lexicon,
+				language,
+				GetReadingSystem(language));
+		}
+		else
+		{
+			var dataPath = options["--data"];
+			using var dataStream = File.OpenRead(dataPath);
+			var lookup = Path.GetExtension(dataPath).Equals(".zip", StringComparison.OrdinalIgnoreCase)
+				? await UnihanArchiveLoader.LoadAsync(dataStream).ConfigureAwait(false)
+				: await UnihanLookupLoader.LoadAsync(dataStream).ConfigureAwait(false);
+			var factory = new TokenizerStrategyFactory();
+			UnihanStrategyRegistration.RegisterFallbacks(
+				factory,
+				new UnihanCharacterReadingProvider(lookup));
+			strategy = factory.GetStrategy(language);
+		}
 
-		var strategy = factory.GetStrategy(language);
 		ISpanPhoneticAligner? aligner = language.Value.StartsWith("ja", StringComparison.OrdinalIgnoreCase)
 			? new JapaneseOkuriganaAligner()
 			: null;
@@ -58,7 +71,8 @@ static async Task<int> RunAsync(string[] arguments)
 		or InvalidDataException
 		or UnauthorizedAccessException
 		or KeyNotFoundException
-		or ArgumentException)
+		or ArgumentException
+		or FormatException)
 	{
 		Console.Error.WriteLine($"Error: {exception.Message}");
 		return 1;
@@ -76,7 +90,7 @@ static bool TryParseArguments(
 	for (var index = 0; index < arguments.Length; index += 2)
 	{
 		var name = arguments[index];
-		if (name is not ("--data" or "--language" or "--text" or "--format"))
+		if (name is not ("--data" or "--lexicon" or "--language" or "--text" or "--format"))
 		{
 			error = $"Unknown option '{name}'.";
 			return false;
@@ -95,7 +109,7 @@ static bool TryParseArguments(
 		}
 	}
 
-	foreach (var required in new[] { "--data", "--language", "--text" })
+	foreach (var required in new[] { "--language", "--text" })
 	{
 		if (!options.ContainsKey(required))
 		{
@@ -104,8 +118,23 @@ static bool TryParseArguments(
 		}
 	}
 
+	if (options.ContainsKey("--data") == options.ContainsKey("--lexicon"))
+	{
+		error = "Specify exactly one of '--data' or '--lexicon'.";
+		return false;
+	}
+
 	return true;
 }
 
+static ReadingSystem GetReadingSystem(LanguageCode language) => language.Value.ToLowerInvariant() switch
+{
+	"zh-cn" => ReadingSystem.MandarinPinyin,
+	"zh-hk" => ReadingSystem.CantoneseJyutping,
+	"ja-jp" => ReadingSystem.JapaneseKana,
+	"ar" or "ar-arab" => ReadingSystem.ArabicTashkeel,
+	_ => throw new ArgumentException($"No built-in reading system is available for '{language.Value}'.", nameof(language))
+};
+
 static void PrintUsage() =>
-	Console.Error.WriteLine("Usage: PhoneticAnnotator.Cli --data <Unihan.zip|Unihan_Readings.txt> --language <zh-CN|zh-HK|ja-JP> --text <text> [--format html|anki|json]");
+	Console.Error.WriteLine("Usage: PhoneticAnnotator.Cli (--data <Unihan.zip|Unihan_Readings.txt> | --lexicon <word-readings.tsv>) --language <zh-CN|zh-HK|ja-JP|ar> --text <text> [--format html|anki|json]");

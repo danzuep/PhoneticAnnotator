@@ -20,13 +20,14 @@
 - [x] Run the CLI against the local Unicode 18.0.0 snapshot for Mandarin, Jyutping, and Japanese; preserve ambiguous Japanese readings as unresolved.
 - [x] Preserve the third-party MIT notice for the local Unihan code separately from data licensing.
 
-## Future Work
-
 - [x] Add a strategy factory with language and preferred-strategy registration/resolution.
 - [x] Add a cancellation-aware Unihan stream loader that filters requested fields without taking ownership of the caller's stream.
 - [x] Accept both release-format Unihan rows and draft-review rows with the ideograph in the first column.
 - [x] Add `scripts/update-unihan.ps1` to download the official Unicode 18.0.0 archive, verify its version header, and safely refresh `data/Unihan_Readings.txt`.
 - [x] Review and record UCD licensing and property provenance: preserve Unicode License V3; UAX #38 identifies Japanese `kJapanese` readings as CITPC Moji Joho Kiban data used under license, so review separately before extracting/redistributing that property.
 - [x] Expand Japanese and mixed-script partial alignment with ordered multi-run matching, hiragana/katakana equivalence, and conservative fallback; keep spans out of async state and retained AST data.
-- [ ] Add provider-backed word tokenization and contextual disambiguation for Japanese, Mandarin, and Cantonese/Jyutping.
-- [ ] Select and integrate a production Arabic Tashkeel provider/data source; the current test uses an injected fixture only.
+- [x] Add a managed, language-scoped TSV word lexicon with trie longest-match tokenization, per-word reading candidates, and Rune-safe pass-through for entries not in the lexicon.
+- [x] Support contextual word-level readings when supplied by the lexicon; preserve ambiguous candidates rather than guessing.
+- [x] Support Arabic Tashkeel paired annotations through caller-supplied lexicon entries; no restrictive model or third-party corpus is bundled.
+- [x] Add managed trie-based word tokenization with longest match, word-level reading candidates, and Rune-safe pass-through for unmatched text; accept caller-supplied licensed lexicons.
+- [x] Support Arabic paired-pronunciation output from caller-supplied Tashkeel lexicon entries; no model or language dataset is bundled.
