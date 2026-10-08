@@ -30,7 +30,12 @@ public sealed record LanguageCode
 /// <param name="Tag">The language and script tag for the reading.</param>
 /// <param name="Name">A display name for the reading system.</param>
 /// <param name="SourceField">The Unihan property supplying the reading.</param>
-public sealed record ReadingSystem(string Tag, string Name, UnihanField SourceField)
+/// <param name="AnnotationKind">The rendering semantics for this reading.</param>
+public sealed record ReadingSystem(
+    string Tag,
+    string Name,
+    UnihanField SourceField,
+    ReadingAnnotationKind AnnotationKind = ReadingAnnotationKind.Ruby)
 {
     /// <summary>
     /// Gets the Mandarin Hanyu Pinyin reading system backed by <c>kMandarin</c>.
@@ -46,6 +51,27 @@ public sealed record ReadingSystem(string Tag, string Name, UnihanField SourceFi
     /// Gets the Japanese Kana reading system backed by <c>kJapanese</c>.
     /// </summary>
     public static ReadingSystem JapaneseKana { get; } = new("jpn-Kana", "Japanese Kana", UnihanField.kJapanese);
+
+    /// <summary>
+    /// Gets the Arabic Tashkeel annotation system.
+    /// </summary>
+    public static ReadingSystem ArabicTashkeel { get; } = new(
+        "ar-Arab",
+        "Tashkeel",
+        UnihanField.Unknown,
+        ReadingAnnotationKind.PairedPronunciation);
+}
+
+/// <summary>
+/// Describes how a reading relates to its source text when rendered.
+/// </summary>
+public enum ReadingAnnotationKind
+{
+    /// <summary>Render the reading as ruby text associated with the source.</summary>
+    Ruby,
+
+    /// <summary>Render the reading as a paired pronunciation annotation.</summary>
+    PairedPronunciation
 }
 
 /// <summary>

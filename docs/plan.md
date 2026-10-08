@@ -15,6 +15,7 @@
 - [x] Add conservative Japanese okurigana alignment that falls back to whole-token annotation when kana matching is uncertain.
 - [x] Cover supplementary-plane offsets, malformed UTF-16, cancellation, field selection, ambiguity, and rendering with focused tests.
 - [x] Verify the loaded Unihan -> language strategy -> AST -> JSON path for Mandarin, Jyutping, and Japanese fixtures.
+- [x] Support paired-pronunciation AST output and verify Arabic Tashkeel through an injected fixture strategy.
 - [x] Add a CLI workflow that reads a caller-supplied Unihan stream and renders HTML, Anki, or JSON.
 
 ## Future Work
@@ -25,5 +26,4 @@
 - [ ] Keep required third-party code notices separate from Unicode data notices; include Unicode License V3 if data is redistributed, and review source terms for the Japanese `kJapanese` field.
 - [ ] Expand language-specific partial alignment policies for broader Japanese and mixed-script text; keep spans out of async state and retained AST data.
 - [ ] Add provider-backed word tokenization and contextual disambiguation for Japanese, Mandarin, and Cantonese/Jyutping.
-- [ ] Add an Arabic Tashkeel provider and exercise paired-pronunciation rendering end to end.
-- [ ] Add Arabic/provider-backed end-to-end tests after external provider contracts and data sources are selected.
+- [ ] Select and integrate a production Arabic Tashkeel provider/data source; the current test uses an injected fixture only.

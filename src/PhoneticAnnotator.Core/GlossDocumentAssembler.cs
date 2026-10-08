@@ -48,7 +48,15 @@ public static class GlossDocumentAssembler
             switch (token.Status)
             {
                 case ReadingResolution.Resolved:
-                    if (aligner is null)
+                    if (token.SourceToken.ReadingSystem.AnnotationKind == ReadingAnnotationKind.PairedPronunciation)
+                    {
+                        children.Add(new PronunciationNode(
+                            baseText,
+                            token.ResolvedReading!,
+                            token.SourceToken.Language,
+                            token.SourceToken.ReadingSystem));
+                    }
+                    else if (aligner is null)
                     {
                         children.Add(new RubyNode(
                             baseText,

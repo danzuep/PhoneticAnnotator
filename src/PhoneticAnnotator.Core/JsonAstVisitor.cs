@@ -74,6 +74,7 @@ public sealed class JsonAstVisitor : IGlossAstVisitor
     {
         tag = readingSystem.Tag,
         name = readingSystem.Name,
-        sourceField = readingSystem.SourceField.ToString()
+        sourceField = readingSystem.SourceField.ToString(),
+        annotationKind = readingSystem.AnnotationKind.ToString()
     };
 }
