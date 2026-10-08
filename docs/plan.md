@@ -10,6 +10,7 @@
 - [x] Assemble owned document, ruby, plain-text, and unresolved AST nodes; define a paired-pronunciation node for future language providers.
 - [x] Render HTML ruby with encoded text and Anki-style `base[reading]` output with delimiter escaping.
 - [x] Serialize all AST node types to JSON with language, reading-system, and source-field metadata.
+- [x] Define a zero-allocation span alignment API with stackalloc-friendly offset segments and explicit destination-capacity behavior.
 - [x] Cover supplementary-plane offsets, malformed UTF-16, cancellation, field selection, ambiguity, and rendering with focused tests.
 
 ## Future Work
@@ -17,7 +18,7 @@
 - [x] Add a strategy factory with language and preferred-strategy registration/resolution.
 - [ ] Add an explicit Unihan data-loading/bootstrap path and document the dataset version when data assets are selected.
 - [ ] Keep required third-party code notices separate from Unicode data notices; include Unicode License V3 if data is redistributed, and review source terms for the Japanese `kJapanese` field.
-- [ ] Define and implement the span alignment API, buffer-capacity behavior, and tests; keep spans out of async state and retained AST data.
+- [ ] Add language-specific partial alignment and connect alignment segments to AST assembly; keep spans out of async state and retained AST data.
 - [ ] Add provider-backed word tokenization and contextual disambiguation for Japanese, Mandarin, and Cantonese/Jyutping.
 - [ ] Add an Arabic Tashkeel provider and exercise paired-pronunciation rendering end to end.
 - [ ] Add end-to-end pipeline tests and a CLI workflow after provider and data-loading contracts are settled.
