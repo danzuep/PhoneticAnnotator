@@ -59,4 +59,30 @@ public sealed class JapaneseOkuriganaAlignerTests
         Assert.Equal(2, destination[1].GlossLength);
         Assert.False(destination[1].IsAnnotated);
     }
+
+    [Fact]
+    public void AlignToSpan_AlignsMultipleOkuriganaRunsInOrder()
+    {
+        var aligner = new JapaneseOkuriganaAligner();
+        ReadOnlySpan<char> baseText = "書き直す";
+        ReadOnlySpan<char> reading = "かきなおす";
+        Span<GlossSegmentOffsets> destination = stackalloc GlossSegmentOffsets[4];
+
+        var count = aligner.AlignToSpan(baseText, reading, destination);
+
+        Assert.Equal(4, count);
+        Assert.Equal((0, 1, 0, 1, true), ToTuple(destination[0]));
+        Assert.Equal((1, 1, 1, 1, false), ToTuple(destination[1]));
+        Assert.Equal((2, 1, 2, 2, true), ToTuple(destination[2]));
+        Assert.Equal((3, 1, 4, 1, false), ToTuple(destination[3]));
+    }
+
+    private static (int BaseStart, int BaseLength, int GlossStart, int GlossLength, bool IsAnnotated) ToTuple(
+        GlossSegmentOffsets segment) =>
+        (
+            segment.BaseStartIndex,
+            segment.BaseLength,
+            segment.GlossStartIndex,
+            segment.GlossLength,
+            segment.IsAnnotated);
 }
