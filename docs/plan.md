@@ -14,6 +14,7 @@
 - [x] Connect alignment output to AST assembly while keeping span processing synchronous.
 - [x] Add conservative Japanese okurigana alignment that falls back to whole-token annotation when kana matching is uncertain.
 - [x] Cover supplementary-plane offsets, malformed UTF-16, cancellation, field selection, ambiguity, and rendering with focused tests.
+- [x] Verify the loaded Unihan -> language strategy -> AST -> JSON path for Mandarin, Jyutping, and Japanese fixtures.
 
 ## Future Work
 
@@ -24,4 +25,4 @@
 - [ ] Expand language-specific partial alignment policies for broader Japanese and mixed-script text; keep spans out of async state and retained AST data.
 - [ ] Add provider-backed word tokenization and contextual disambiguation for Japanese, Mandarin, and Cantonese/Jyutping.
 - [ ] Add an Arabic Tashkeel provider and exercise paired-pronunciation rendering end to end.
-- [ ] Add end-to-end pipeline tests and a CLI workflow after provider and data-loading contracts are settled.
+- [ ] Add Arabic/provider-backed end-to-end tests and a CLI workflow after external provider contracts are settled.
