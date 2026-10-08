@@ -26,7 +26,7 @@
 - [x] Add a cancellation-aware Unihan stream loader that filters requested fields without taking ownership of the caller's stream.
 - [x] Accept both release-format Unihan rows and draft-review rows with the ideograph in the first column.
 - [x] Add `scripts/update-unihan.ps1` to download the official Unicode 18.0.0 archive, verify its version header, and safely refresh `data/Unihan_Readings.txt`.
-- [ ] Review property-specific source terms, including Japanese readings, before redistributing any derived data.
-- [ ] Expand language-specific partial alignment policies for broader Japanese and mixed-script text; keep spans out of async state and retained AST data.
+- [x] Review and record UCD licensing and property provenance: preserve Unicode License V3; UAX #38 identifies Japanese `kJapanese` readings as CITPC Moji Joho Kiban data used under license, so review separately before extracting/redistributing that property.
+- [x] Expand Japanese and mixed-script partial alignment with ordered multi-run matching, hiragana/katakana equivalence, and conservative fallback; keep spans out of async state and retained AST data.
 - [ ] Add provider-backed word tokenization and contextual disambiguation for Japanese, Mandarin, and Cantonese/Jyutping.
 - [ ] Select and integrate a production Arabic Tashkeel provider/data source; the current test uses an injected fixture only.

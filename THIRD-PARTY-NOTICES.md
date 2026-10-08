@@ -7,6 +7,10 @@ data file. Its original header is preserved.
 
 Official release archive: https://www.unicode.org/Public/18.0.0/ucd/Unihan.zip
 
+UAX #38 identifies the Japanese `kJapanese` readings as data from the Moji Joho
+Kiban database, owned by CITPC and used under license. Review that property's
+terms before extracting or redistributing it separately from the official UCD.
+
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
