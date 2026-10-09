@@ -4,7 +4,7 @@ return await RunAsync(args);
 
 static async Task<int> RunAsync(string[] arguments)
 {
-	if (arguments.Length == 1 && arguments[0] is "--help" or "-h")
+	if (arguments.Length == 0 || arguments.Length == 1 && arguments[0] is "--help" or "-h")
 	{
 		PrintUsage();
 		return 0;
