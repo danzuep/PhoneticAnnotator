@@ -100,8 +100,10 @@ function renderMetadata() {
             if (field !== 'kDefinition' && !fields.includes(field)) continue;
             let value = raw;
             if (field === 'kSMSZD2003Readings') {
-                const parts = raw.split('粵');
-                value = selectedLanguage() === 'zh-HK' ? parts[1] : parts[0];
+                value = raw.split(/\s+/u).map(pair => {
+                    const parts = pair.split('粵');
+                    return selectedLanguage() === 'zh-HK' ? parts[1] : parts[0];
+                }).filter(Boolean).join(' ');
                 if (!value) continue;
             }
             const term = document.createElement('dt');

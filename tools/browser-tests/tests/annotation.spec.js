@@ -115,6 +115,13 @@ for (const runtime of [{ path: './', name: '.NET' }, { path: './netwasm/', name:
         await expect(page.locator('#character-metadata')).toContainText('kHanyuPinyin');
         await expect(page.locator('#character-metadata')).toContainText('kDefinition');
         await expect(page.locator('#character-metadata')).not.toContainText('kJapanese');
+        await expect(page.locator('#character-metadata dt').filter({ hasText: /^kSMSZD2003Readings$/ }).last()
+            .locator('+ dd')).toHaveText('hǎo hào');
+        await page.locator('#language').selectOption('zh-HK');
+        await expect(page.locator('#controls')).toBeEnabled();
+        await expect(page.locator('#character-metadata dt').filter({ hasText: /^kSMSZD2003Readings$/ }).last()
+            .locator('+ dd')).toHaveText('hou2 hou3');
+        await expect(page.locator('#character-metadata')).not.toContainText('hào');
 
         await page.locator('#language').selectOption('ja-JP');
         await expect(page.locator('#controls')).toBeEnabled();
