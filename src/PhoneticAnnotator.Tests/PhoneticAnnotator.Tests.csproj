@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PhoneticAnnotator.Core\PhoneticAnnotator.Core.csproj" />
+    <Compile Include="../PhoneticAnnotator.Wasm/AnnotationSession.cs" Link="AnnotationSession.cs" />
   </ItemGroup>
 
 </Project>

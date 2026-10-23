@@ -1,0 +1,47 @@
+name: Deploy native WASM demo to Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wasm-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-dotnet@v4.3.1
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install native WASM tools
+        run: dotnet workload install wasm-tools
+      - uses: actions/configure-pages@v5.0.0
+      - name: Test
+        run: dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
+      - name: Publish AOT browser bundle
+        run: dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0
+      - uses: actions/upload-pages-artifact@v3.0.1
+        with:
+          path: src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4.0.5
