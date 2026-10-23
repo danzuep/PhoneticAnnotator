@@ -114,6 +114,10 @@ dotnet publish src/PhoneticAnnotator.Cli/PhoneticAnnotator.Cli.csproj -c Release
 artifacts/linux-x64/PhoneticAnnotator.Cli --lexicon data/examples/word-readings.tsv --language ja-JP --text 食べる --format html
 ```
 
+Native AOT publishing can report IL2026/IL3050 warnings from pre-existing Unihan
+reflection-based JSON helper APIs. The CLI annotation path does not call those
+helpers; its HTML/JSON word-lexicon smoke checks are exercised separately.
+
 ### CI and GitHub Pages
 
 1. Merge the workflow onto the default branch and enable **Settings → Pages →
@@ -132,6 +136,8 @@ The combined site serves Microsoft WASM at the root and NetWasm at `/netwasm/`,
 with runtime links in the UI. Pages deployment waits for the native and browser
 matrices, skips stale `main` revisions, and runs Chromium against both live pages.
 Only the deployment job receives Pages write/OIDC permissions.
+Agent-authored workflow runs may require a maintainer's **Approve and run**
+before any jobs start; no Pages deployment occurs until those checks complete.
 
 To reproduce browser checks locally, publish both runtimes, assemble the same
 project-path site used by CI, then run:

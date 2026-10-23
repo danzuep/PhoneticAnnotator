@@ -1,5 +1,22 @@
 # Third-Party Notices
 
+## NetWasm and browser qualification tools
+
+The optional `netwasm0.1` target uses NetWasm SDK 0.10.2 and its 0.10.0
+ported-library packages. NetWasm's compiler/tooling uses the NetWasm Community
+License; its CoreLib/runtime/generated support uses MIT with upstream notices,
+and the Compact/NetWasmGC collectors use Apache-2.0. Review the upstream terms
+before commercial use and preserve applicable notices when redistributing
+published runtime files:
+
+- https://github.com/zion-sati/NetWasm/blob/main/docs/licensing.md
+- https://github.com/zion-sati/NetWasm/blob/main/THIRD-PARTY-NOTICES.md
+- https://github.com/zion-sati/NetWasm.Libraries
+
+Playwright is used only for browser regression checks and is licensed under
+Apache-2.0. Its downloaded browsers have their own upstream licenses:
+https://github.com/microsoft/playwright/blob/main/LICENSE.
+
 ## Unihan data
 
 This repository bundles `data/Unihan_Readings.txt`, the Unicode 18.0.0 Unihan readings
