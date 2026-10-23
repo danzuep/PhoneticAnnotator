@@ -35,6 +35,8 @@ for (const runtime of [{ path: './', name: '.NET' }, { path: './netwasm/', name:
         await expect(page.locator('#pick-first')).toBeChecked();
         await page.locator('#strategy').selectOption('word');
         await expect(page.locator('#controls')).toBeEnabled();
+        await page.locator('#language').selectOption('ja-JP');
+        await page.locator('#text').fill('食べる');
         await expect(page.locator('#preview ruby rt')).toHaveText('た');
         await expect(page.locator('#latency')).toHaveText(/^\d+\.\d{3} ms$/);
         await page.locator('#alignment').uncheck();
@@ -75,6 +77,72 @@ for (const runtime of [{ path: './', name: '.NET' }, { path: './netwasm/', name:
         await page.setViewportSize({ width: 375, height: 812 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         expect(errors).toEqual([]);
+    });
+
+    test(`${runtime.name}: defaults, metadata, local text upload and startup diagnostics`, async ({ page }) => {
+        const dictionaryRequests = [];
+        page.on('request', request => {
+            if (/\/(word-readings\.tsv|Unihan_Readings\.txt)$/.test(new URL(request.url()).pathname)) {
+                dictionaryRequests.push(request.url());
+            }
+        });
+        await ready(page, runtime.path);
+        await expect(page.locator('#language')).toHaveValue('zh-CN');
+        await expect(page.locator('#text')).toHaveValue('你好');
+        await expect(page.locator('#preview ruby rt')).toHaveText(['nǐ', 'hǎo']);
+        await expect(page.locator('#alignment')).not.toBeVisible();
+        await expect(page.locator('#metadata')).not.toHaveAttribute('open', '');
+        await expect(page.locator('#diagnostics')).not.toHaveAttribute('open', '');
+        expect(dictionaryRequests).toHaveLength(2);
+
+        await page.locator('#metadata summary').click();
+        await expect(page.locator('#character-metadata')).toContainText('kMandarin');
+        await expect(page.locator('#character-metadata')).toContainText('kHanyuPinyin');
+        await expect(page.locator('#character-metadata')).toContainText('kDefinition');
+        await expect(page.locator('#character-metadata')).not.toContainText('kJapanese');
+
+        await page.locator('#language').selectOption('ja-JP');
+        await expect(page.locator('#controls')).toBeEnabled();
+        await expect(page.locator('#alignment')).toBeVisible();
+        await page.locator('#example').click();
+        await expect(page.locator('#text')).toHaveValue('山林');
+        await expect(page.locator('#preview ruby rt')).toHaveText(['サン', 'リン']);
+        await expect(page.locator('#character-metadata')).toContainText('kJapaneseOn');
+        await expect(page.locator('#character-metadata')).not.toContainText('kMandarin');
+        expect(dictionaryRequests).toHaveLength(2);
+
+        await page.locator('#language').selectOption('zh-CN');
+        await expect(page.locator('#controls')).toBeEnabled();
+        await page.locator('#text-file').setInputFiles({
+            name: 'example.txt', mimeType: 'text/plain',
+            buffer: Buffer.from('你好😀\n<script>alert("local")</script>')
+        });
+        await expect(page.locator('#text')).toHaveValue('你好😀\n<script>alert("local")</script>');
+        await expect(page.locator('#preview')).toContainText('<script>alert("local")</script>');
+        await expect(page.locator('#preview script')).toHaveCount(0);
+        await expect(page.locator('#character-metadata')).toContainText('U+1F600');
+        await expect(page.locator('#character-metadata')).toContainText('No Unihan metadata');
+        await expect(page.locator('#character-metadata script')).toHaveCount(0);
+
+        await page.locator('#diagnostics summary').click();
+        await expect(page.locator('#load-timings')).toContainText('Runtime initialization');
+        await expect(page.locator('#load-timings')).toContainText('Word dictionary download');
+        await expect(page.locator('#load-timings')).toContainText('Word dictionary indexing');
+        await expect(page.locator('#load-timings')).toContainText('Unihan download');
+        await expect(page.locator('#load-timings')).toContainText('Unihan indexing · kMandarin');
+        await expect(page.locator('#load-timings')).toContainText('Page to first preview');
+        await expect(page.locator('#resource-timings')).toContainText('Unihan_Readings.txt');
+        await expect(page.locator('#resource-timings')).toContainText('encoded');
+
+        await page.locator('#strategy').selectOption('word');
+        await expect(page.locator('#controls')).toBeEnabled();
+        await page.locator('#text').fill('你好');
+        await expect(page.locator('#preview ruby rt')).toHaveText('nǐ hǎo');
+        expect(dictionaryRequests).toHaveLength(2);
+        await page.locator('#language').selectOption('ar');
+        await page.locator('#text').fill('كتب');
+        await expect(page.locator('#character-metadata')).not.toContainText('kMandarin');
+        await expect(page.locator('#alignment')).not.toBeVisible();
     });
 
     test(`${runtime.name}: all modern Unihan fields and ambiguity toggle`, async ({ page }) => {

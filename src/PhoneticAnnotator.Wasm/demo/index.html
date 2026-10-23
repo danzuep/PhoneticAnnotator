@@ -20,22 +20,30 @@
     .reading { margin-inline-start: .5em; font-size: .8em; }
     #latency { padding: .2rem .6rem; border: 1px solid #888; border-radius: 1rem; font-variant-numeric: tabular-nums; font-size: .9rem; }
     #status { min-height: 1.6em; }
+    :root { --card: light-dark(#fff, #20242b); --border: light-dark(#d5dbe4, #525c6b); background: light-dark(#f3f5f9, #15181d); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: .8rem; padding: 1.25rem; margin-block: 1rem; box-shadow: 0 .2rem .8rem #0001; }
+    fieldset.card { border: 1px solid var(--border); }
+    legend { font-weight: 600; }
+    textarea, #preview { border: 1px solid var(--border); border-radius: .5rem; background: var(--card); color: inherit; }
+    summary { cursor: pointer; font-weight: 600; }
+    dt { font-weight: 600; }
+    dd { margin-inline-start: 1rem; overflow-wrap: anywhere; }
+    #character-metadata { overflow-wrap: anywhere; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
   <h1>Phonetic Annotator <small id="runtime">WebAssembly</small></h1>
   <nav aria-label="Runtime"><a href="./">.NET WASM demo</a> · <a href="./netwasm/">NetWasm demo</a></nav>
-  <p>Local, browser-only .NET 10 annotations. No Blazor, server, or text uploads.</p>
+  <p>Local, browser-only annotations. No Blazor or server; imported text stays on your device.</p>
   <p id="status" role="status">Starting .NET…</p>
-  <fieldset id="controls" disabled>
+  <fieldset id="controls" class="card" disabled>
     <legend>Annotation settings</legend>
-    <label for="text">Text</label>
-    <textarea id="text" spellcheck="false">食べる</textarea>
     <div class="controls">
       <label>Reading system
         <select id="language">
           <option value="ja-JP" data-reading="kJapanese">Japanese · Kana</option>
-          <option value="zh-CN" data-reading="kMandarin">Mandarin · Pinyin</option>
+          <option value="zh-CN" data-reading="kMandarin" selected>Mandarin · Pinyin</option>
           <option value="zh-HK" data-reading="kCantonese">Cantonese · Jyutping</option>
           <option value="ko" data-reading="kHangul">Korean · Hangul</option>
           <option value="vi" data-reading="kVietnamese">Vietnamese</option>
@@ -64,22 +72,45 @@
           <option value="json">JSON AST</option>
         </select>
       </label>
-      <label><input id="alignment" type="checkbox" checked> Align Japanese okurigana</label>
+      <label id="alignment-setting" hidden><input id="alignment" type="checkbox" checked> Align Japanese okurigana</label>
       <label><input id="pick-first" type="checkbox" checked> Pick first reading when ambiguous</label>
       <button id="example" type="button">Use example text</button>
       <label>Load dictionary chunks (UTF-8 TSV)
         <input id="dictionary" type="file" accept=".tsv,text/tab-separated-values" multiple>
       </label>
     </div>
+    <label>Import text (UTF-8 .txt)
+      <input id="text-file" type="file" accept=".txt,text/plain">
+    </label>
+    <label for="text">Text</label>
+    <textarea id="text" spellcheck="false">你好</textarea>
   </fieldset>
+  <section class="card" aria-label="Annotation preview">
   <h2>Preview <output id="latency" aria-label="Annotation latency">— ms</output></h2>
   <div id="preview" aria-live="polite"></div>
+  </section>
+  <details id="metadata" class="card">
+    <summary>Character metadata · selected language</summary>
+    <p>Raw Unihan fields, including all alternatives and source references, not just the chosen reading.
+      Definitions are language-neutral; characters without matching data are shown explicitly.</p>
+    <div id="character-metadata"></div>
+  </details>
+  <details id="diagnostics" class="card">
+    <summary>Page and dictionary load diagnostics</summary>
+    <dl id="load-timings"></dl>
+    <p>Runtime startup and dictionary downloads overlap. Dictionary indexing includes interop copies.
+      A smaller runtime download does not guarantee faster compilation, initialization, or dictionary parsing.
+      Compare the two separate runtime pages with the same browser cache and reading selection.</p>
+    <p>Resource sizes below are browser-reported bytes; zero transfer bytes can indicate a cached resource.
+      Annotation latency above excludes startup and rendering.</p>
+    <div id="resource-timings"></div>
+  </details>
   <p>Unihan uses the bundled Unicode 18 character readings, not a morphological dictionary.
     First-reading selection is a heuristic, not contextual disambiguation; uncheck it to preserve
     ambiguous candidates in JSON. Unknown text is preserved.</p>
-  <p>The word dictionary contains examples: 食べる, 你好, 重庆, كتب; upload TSV files to extend it.
-    Unihan is downloaded once (about 8.5 MB); only the selected field is indexed in memory.
-    Historical Tang/fanqie readings and definitions are omitted.
+  <p>The word dictionary contains examples: 山林, 食べる, 你好, 重庆, كتب; upload TSV files to extend it.
+    Dictionaries are preloaded during startup. Unihan is downloaded once (about 8.5 MB);
+    only the selected reading is indexed for annotation. Additional raw fields are available in character metadata.
     <a href="./THIRD-PARTY-NOTICES.txt">Data and runtime notices</a>.</p>
   <script type="module" src="app.mjs"></script>
 </body>
