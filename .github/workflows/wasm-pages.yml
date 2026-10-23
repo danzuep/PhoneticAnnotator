@@ -2,7 +2,7 @@ name: Browser WebAssembly and Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, '**[dD][eE][vV][oO][pP][sS]**']
   pull_request:
   workflow_dispatch:
 
@@ -70,7 +70,7 @@ jobs:
         working-directory: tools/browser-tests
         run: npm test -- --project=chromium
       - uses: actions/upload-pages-artifact@v3.0.1
-        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event_name == 'workflow_dispatch'
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || contains(github.ref_name, 'devops'))) || github.event_name == 'workflow_dispatch'
         with:
           path: artifacts/site/PhoneticAnnotator
       - uses: actions/upload-artifact@v4.6.2
@@ -82,7 +82,7 @@ jobs:
             artifacts/browser-report/
 
   pages:
-    if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || contains(github.ref_name, 'devops'))) || github.event_name == 'workflow_dispatch'
     needs: browser
     runs-on: ubuntu-latest
     permissions:

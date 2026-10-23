@@ -79,8 +79,8 @@ The full modern Unihan demo offers `kMandarin`, `kCantonese`, `kJapanese`,
 `kHanyuPinlu`, `kHanyuPinyin`, `kTGHZ2013`, `kXHC1983`, and
 `kSMSZD2003Readings` with separate Mandarin/Cantonese modes. Historical `kTang`
 and `kFanqie`, non-reading `kDefinition`, and absent `kBopomofo` are excluded.
-On first use, the demo lazily downloads the approximately **8.5 MB**
-`Unihan_Readings.txt` file and caches its bytes in browser memory. Only the selected
+During startup, both demos preload the example word dictionary and approximately **8.5 MB**
+`Unihan_Readings.txt` file concurrently with runtime initialization, and cache their bytes in browser memory. Only the selected
 field is parsed; switching fields reuses the cached download and replaces the
 selected dictionary. The cache is not persistent across page reloads.
 
@@ -91,6 +91,31 @@ dictionary is valid. Unihan annotation requires the matching dictionary to be lo
 Rejected promises expose invalid input/options/dictionary errors.
 The latency badge measures the annotation call, including interop, but excludes
 runtime/dictionary startup and DOM rendering.
+
+Both demos start with Mandarin/Pinyin and the unambiguous example 你好. The Japanese
+example is 山林, whose first character readings give サンリン, rather than using
+食べる with the character-reading heuristic. Japanese alignment controls are hidden
+for other languages. Import UTF-8 `.txt` files locally using the text picker;
+neither text nor dictionaries are sent to a server.
+
+The collapsed **Character metadata** panel shows raw fields and all alternatives
+for each distinct non-whitespace input character, filtered to the selected language,
+plus language-neutral definitions. Combined SMSZD data is split into its Mandarin
+or Cantonese part. Historical Chinese fields are visible here but are not used for
+annotation. Missing metadata is explicit; this panel describes bundled Unihan data,
+not uploaded word entries. Raw metadata is decoded only when the panel is opened.
+
+The collapsed **Page and dictionary load diagnostics** panel separates document,
+runtime initialization, dictionary fetch/indexing, and first-preview timings, and
+lists browser resource transfer/encoded/decoded sizes. Fetches overlap runtime
+startup, so these durations are not additive. The separate runtime URLs already
+isolate initialization while reusing the same markup, styles, and controller.
+Compare cold-cache and warm-cache visits separately with the same reading selected.
+A smaller NetWasm bundle only reduces potential transfer time: module compilation,
+integrity checks, runtime initialization, interop copies, and managed dictionary
+parsing also contribute. Microsoft Release builds use AOT; NetWasm uses a different
+compiler/runtime. Package size alone cannot establish which phase is slower;
+use the diagnostics to identify the bottleneck on the actual browser/device.
 
 Strings and `byte[]` necessarily copy across the supported JS interop boundary:
 `[JSExport]` cannot directly marshal `ReadOnlySpan<char>` or
@@ -148,10 +173,11 @@ Compatibility boundaries:
 
 1. Merge the workflow onto the default branch and enable **Settings → Pages →
    Build and deployment → Source: GitHub Actions** (requires repository admin access).
-2. Push to `main`, or open **Actions → Browser WebAssembly and Pages → Run workflow**
+2. Push to `main` or a branch containing `DevOps` (case-insensitive, including
+   `copilot/devops-update-loading-perf`), or open **Actions → Browser WebAssembly and Pages → Run workflow**
    and select the branch to deploy. Manual dispatch can deploy any branch, subject
    to the `github-pages` environment's deployment rules. Pull requests build/test
-   without deploying Pages. Other branch pushes do not start a duplicate workflow;
+   without deploying Pages. Other branch pushes do not start a workflow;
    open a pull request or dispatch the workflow manually.
 3. Approve the `github-pages` environment deployment if your repository requires it.
    The deploy job exposes the resulting Pages URL, normally
