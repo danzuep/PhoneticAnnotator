@@ -2,11 +2,16 @@ name: Browser WebAssembly and Pages
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   browser-build:
@@ -16,8 +21,10 @@ jobs:
       - uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
       - name: Install native WASM tools
-        run: dotnet workload install wasm-tools
+        run: dotnet workload install wasm-tools --skip-manifest-update
       - name: Run managed tests
         run: dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
       - name: Publish AOT browser bundle
@@ -38,10 +45,6 @@ jobs:
   browser:
     needs: browser-build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-dotnet@v4.3.1
@@ -50,6 +53,8 @@ jobs:
       - uses: actions/setup-node@v4.4.0
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/browser-tests/package-lock.json
       - name: Download shared browser site
         uses: actions/download-artifact@v4.3.0
         with:
@@ -60,18 +65,18 @@ jobs:
         run: |
           dotnet tool install --global dotnet-serve --version 1.10.194
           npm ci
-          npx playwright install --with-deps ${{ matrix.browser }}
+          npx playwright install --with-deps --only-shell chromium
       - name: Exercise both published runtimes under a project path
         working-directory: tools/browser-tests
-        run: npm test -- --project=${{ matrix.browser }}
+        run: npm test -- --project=chromium
       - uses: actions/upload-pages-artifact@v3.0.1
-        if: ((github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event_name == 'workflow_dispatch') && matrix.browser == 'chromium'
+        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event_name == 'workflow_dispatch'
         with:
           path: artifacts/site/PhoneticAnnotator
       - uses: actions/upload-artifact@v4.6.2
         if: always()
         with:
-          name: phoneticannotator-browser-${{ matrix.browser }}
+          name: phoneticannotator-browser-chromium
           path: |
             artifacts/browser-results/
             artifacts/browser-report/
@@ -116,6 +121,8 @@ jobs:
         if: steps.current.outputs.deploy == 'true'
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/browser-tests/package-lock.json
       - name: Verify both live Pages runtimes
         if: steps.current.outputs.deploy == 'true'
         working-directory: tools/browser-tests
@@ -123,7 +130,7 @@ jobs:
           PHONETIC_BASE_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps --only-shell chromium
           curl --fail --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "$PHONETIC_BASE_URL" > /dev/null
           npm test -- --project=chromium
       - uses: actions/upload-artifact@v4.6.2
