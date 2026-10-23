@@ -3,9 +3,9 @@ using System.Runtime.CompilerServices;
 namespace PhoneticAnnotator.Core;
 
 /// <summary>
-/// Resolves only tokens with exactly one candidate and never guesses among readings.
+/// Resolves single candidates, optionally selecting the first of multiple readings.
 /// </summary>
-public sealed class CandidateOnlyDisambiguator : IPhoneticDisambiguator
+public sealed class CandidateOnlyDisambiguator(bool pickFirstReading = false) : IPhoneticDisambiguator
 {
     /// <inheritdoc />
     public async IAsyncEnumerable<DisambiguatedToken> DisambiguateStreamAsync(
@@ -20,6 +20,7 @@ public sealed class CandidateOnlyDisambiguator : IPhoneticDisambiguator
             {
                 0 => ReadingResolution.NoReading,
                 1 => ReadingResolution.Resolved,
+                _ when pickFirstReading => ReadingResolution.Resolved,
                 _ => ReadingResolution.Ambiguous
             };
             var reading = status == ReadingResolution.Resolved ? token.ReadingCandidates[0] : null;

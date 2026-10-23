@@ -1,4 +1,4 @@
-name: Desktop and WebAssembly
+name: Browser WebAssembly and Pages
 
 on:
   push:
@@ -9,53 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  native:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            rid: linux-x64
-          - os: ubuntu-24.04-arm
-            rid: linux-arm64
-          - os: windows-latest
-            rid: win-x64
-          - os: windows-11-arm
-            rid: win-arm64
-          - os: macos-latest
-            rid: osx-arm64
-          - os: macos-15-intel
-            rid: osx-x64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-dotnet@v4.3.1
-        with:
-          dotnet-version: '10.0.x'
-      - name: Install Linux AOT dependencies
-        if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y clang zlib1g-dev
-      - name: Test desktop pipeline
-        run: dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
-      - name: Publish native AOT CLI
-        run: dotnet publish src/PhoneticAnnotator.Cli/PhoneticAnnotator.Cli.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -o artifacts/${{ matrix.rid }}
-      - name: Exercise native annotation pipeline
-        shell: bash
-        run: |
-          executable="artifacts/${{ matrix.rid }}/PhoneticAnnotator.Cli"
-          if [[ "${{ runner.os }}" == "Windows" ]]; then executable="${executable}.exe"; fi
-          "$executable" --lexicon data/examples/word-readings.tsv --language ja-JP --text '食べる' --format html | tee artifacts/native.html
-          grep -q '<ruby>' artifacts/native.html
-          "$executable" --lexicon data/examples/word-readings.tsv --language zh-CN --text '你好重庆' --format json | tee artifacts/native.json
-          grep -q '"type":"unresolved"' artifacts/native.json
-          "$executable" --lexicon data/examples/word-readings.tsv --language ar --text 'كتب' --format html | tee artifacts/native-arabic.html
-          grep -q 'phonetic-annotation' artifacts/native-arabic.html
-      - uses: actions/upload-artifact@v4.6.2
-        if: always()
-        with:
-          name: phoneticannotator-${{ matrix.rid }}
-          path: artifacts/
-
   browser-build:
     runs-on: ubuntu-latest
     steps:
@@ -65,6 +18,8 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Install native WASM tools
         run: dotnet workload install wasm-tools
+      - name: Run managed tests
+        run: dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
       - name: Publish AOT browser bundle
         run: dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0
       - name: Publish alternative NetWasm runtime and assemble static site
@@ -72,7 +27,7 @@ jobs:
           dotnet publish src/PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj -c Release -o artifacts/netwasm
           mkdir -p artifacts/site/PhoneticAnnotator/netwasm
           cp -a src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot/. artifacts/site/PhoneticAnnotator/
-          cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/site/PhoneticAnnotator/netwasm/
+          cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/netwasm/Unihan_Readings.txt artifacts/netwasm/THIRD-PARTY-NOTICES.txt artifacts/site/PhoneticAnnotator/netwasm/
       - name: Upload shared browser site
         uses: actions/upload-artifact@v4.6.2
         with:
@@ -110,7 +65,7 @@ jobs:
         working-directory: tools/browser-tests
         run: npm test -- --project=${{ matrix.browser }}
       - uses: actions/upload-pages-artifact@v3.0.1
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && matrix.browser == 'chromium'
+        if: ((github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event_name == 'workflow_dispatch') && matrix.browser == 'chromium'
         with:
           path: artifacts/site/PhoneticAnnotator
       - uses: actions/upload-artifact@v4.6.2
@@ -122,8 +77,8 @@ jobs:
             artifacts/browser-report/
 
   pages:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [native, browser]
+    if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event_name == 'workflow_dispatch'
+    needs: browser
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -141,9 +96,9 @@ jobs:
         id: current
         shell: bash
         run: |
-          latest_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+          latest_sha="$(git ls-remote --refs origin "$GITHUB_REF" | cut -f1)"
           if [[ -z "$latest_sha" ]]; then
-            echo "::error::Could not resolve the current main commit"
+            echo "::error::Could not resolve the current $GITHUB_REF commit"
             exit 1
           fi
           if [[ "$latest_sha" == "$GITHUB_SHA" ]]; then

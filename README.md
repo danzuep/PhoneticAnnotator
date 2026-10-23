@@ -1,6 +1,6 @@
 # Phonetic Annotator
 
-Phonetic Annotator is a .NET 10 library and CLI for adding Mandarin, Cantonese/Jyutping, Japanese, or Arabic pronunciation glosses while preserving Unicode offsets and unresolved readings; it includes Unicode 18.0.0 Unihan character readings, supports caller-supplied word lexicons in `language<TAB>word<TAB>reading1|reading2` TSV format (see `data/examples/word-readings.tsv`), builds with `dotnet build src/PhoneticAnnotator.slnx`, tests with `dotnet test src/PhoneticAnnotator.slnx`, updates Unihan with `pwsh -NoProfile -File scripts/update-unihan.ps1`, and accepts either `--data data/Unihan_Readings.txt` or `--lexicon path/to/readings.tsv` with language, text, and output-format options.
+Phonetic Annotator is a .NET 10 library with browser-only deployments for adding pronunciation glosses while preserving Unicode offsets and unresolved readings. Both WebAssembly demos include Unicode 18.0.0 Unihan character readings for Mandarin, Cantonese/Jyutping, Japanese, Korean, Vietnamese, and Zhuang, plus a word-lexicon strategy supporting those languages and Arabic. Caller-supplied lexicons use `language<TAB>word<TAB>reading1|reading2` TSV format (see `data/examples/word-readings.tsv`). The CLI remains a developer utility, not a supported desktop deployment target. Build with `dotnet build src/PhoneticAnnotator.slnx`, test with `dotnet test src/PhoneticAnnotator.slnx`, and update Unihan with `pwsh -NoProfile -File scripts/update-unihan.ps1`.
 
 ---
 
@@ -26,7 +26,7 @@ For a quicker interpreter-only publish, append `-p:RunAOTCompilation=false`.
 Serve the generated **publish/wwwroot**, not the source `demo` directory or its
 parent `publish` directory. All module/dictionary URLs are relative, including on project Pages sites.
 
-### JavaScript API and dictionary chunks
+### JavaScript API and dictionaries
 
 `demo/app.mjs` creates the runtime, registers the `phonetic-demo.onReady` import,
 gets exports with `getAssemblyExports('PhoneticAnnotator.Wasm')`, and awaits
@@ -38,6 +38,11 @@ the in-memory annotation session before invoking `onReady`. The methods on
 - `AnnotateToJson(text, optionsJson)` returns the Core discriminated AST JSON,
   including unresolved reading candidates. JSON rendering is reflection-free and
   safe under trimming/AOT.
+- `LoadUnihanDictionary(bytes, readingId)` parses the selected reading field from
+  UTF-8 `Unihan_Readings.txt` and replaces the single selected immutable Unihan
+  dictionary using `Interlocked.Exchange`. It does not accumulate fields. Failed
+  loads leave the previous dictionary unchanged; in-flight annotations retain their
+  captured snapshot. Await the selected dictionary load before annotating with it.
 - `LoadDictionaryChunk(uint8Array)` adds one **complete UTF-8 word-lexicon TSV**
   chunk: `language<TAB>word<TAB>reading1|reading2`, with optional comments/blank
   lines. Chunks are files, not fragments of a line or arbitrary Unihan/binary data.
@@ -51,12 +56,36 @@ the in-memory annotation session before invoking `onReady`. The methods on
   For efficiency, batch entries into a few substantial chunks rather than many tiny
   files (lookup cost grows with the number of chunks).
 
-Options are a JSON object with `language` (`ja-JP`, `zh-CN`, `zh-HK`, `ar`, or
-`ar-Arab`; case-insensitive, default `ja-JP`) and `alignOkurigana` (boolean,
-default `true`). Unknown text is preserved; an empty dictionary is valid.
+Options are a JSON object:
+
+- `strategy`: `"word"` (API default) or `"unihan"` (demo default).
+- `readingSystem`: a Unihan field ID from the list below; use
+  `kSMSZD2003Readings-Cantonese` for SMSZD Cantonese and `kSMSZD2003Readings`
+  for its Mandarin mode. `ar` selects Arabic word readings.
+- `language`: legacy case-insensitive mappings `ja-JP` → `kJapanese` (API default),
+  `zh-CN` → `kMandarin`, `zh-HK` → `kCantonese`, `ko` → `kHangul`,
+  `vi` → `kVietnamese`, `za` → `kZhuang`, and `ar`/`ar-Arab` → Arabic.
+  An explicit `readingSystem` selects the reading and associated language instead.
+- `pickFirstReading`: boolean, default `false` in the API and `true` in the demo.
+  Selecting the first candidate is a heuristic, **not contextual disambiguation**.
+  Disable it to preserve ambiguous candidates as unresolved readings.
+- `alignOkurigana`: boolean, default `true`.
+
+The full modern Unihan demo offers `kMandarin`, `kCantonese`, `kJapanese`,
+`kJapaneseOn`, `kJapaneseKun`, `kHangul`, `kKorean`, `kVietnamese`, `kZhuang`,
+`kHanyuPinlu`, `kHanyuPinyin`, `kTGHZ2013`, `kXHC1983`, and
+`kSMSZD2003Readings` with separate Mandarin/Cantonese modes. Historical `kTang`
+and `kFanqie`, non-reading `kDefinition`, and absent `kBopomofo` are excluded.
+On first use, the demo lazily downloads the approximately **8.5 MB**
+`Unihan_Readings.txt` file and caches its bytes in browser memory. Only the selected
+field is parsed; switching fields reuses the cached download and replaces the
+selected dictionary. The cache is not persistent across page reloads.
+
+The word strategy remains available with the small example
+`data/examples/word-readings.tsv` and additional TSV uploads through the file picker;
+it is not a full morphological dictionary. Unknown text is preserved; an empty word
+dictionary is valid. Unihan annotation requires the matching dictionary to be loaded.
 Rejected promises expose invalid input/options/dictionary errors.
-The UI starts with the small existing `data/examples/word-readings.tsv`; it is not
-a full morphological dictionary. Load additional TSV files using the file picker.
 The latency badge measures the annotation call, including interop, but excludes
 runtime/dictionary startup and DOM rendering.
 
@@ -71,9 +100,9 @@ entries, options, and returned strings still allocate. Shared dictionaries are
 immutable, and each call owns its visitors/options/AST. The default runtime is
 single-threaded and does not require cross-origin isolation headers.
 
-### Alternative NetWasm runtime and desktop targets
+### Alternative NetWasm browser runtime
 
-The same word-lexicon pipeline also targets **`netwasm0.1`**, using
+The same Unihan and word-lexicon pipeline also targets **`netwasm0.1`**, using
 [NetWasm](https://github.com/zion-sati/NetWasm) SDK **0.10.2** and its
 **0.10.0** JSON/LINQ library ports. This is a separate compiler/runtime, not
 Microsoft's `browser-wasm` target. `PhoneticAnnotator.Core` multi-targets
@@ -93,57 +122,47 @@ the SDK restores its own pinned host tools. Use .NET SDK 10.0.303 or later.
 
 Compatibility boundaries:
 
-- NetWasm's Core target includes the shared `UnihanField` enum but not the
-  desktop Unihan archive/lookup loaders or character-reading provider. The full
-  `net10.0` API and existing Microsoft WASM runtime are unchanged. Both demos use
-  complete UTF-8 word-lexicon TSV chunks, not Unihan ZIPs.
+- Both demos parse the bundled UTF-8 `Unihan_Readings.txt` for the selected
+  modern reading field and accept complete UTF-8 word-lexicon TSV chunks.
+  The browser API does not accept Unihan ZIP archives.
 - NetWasm 0.10.2 cannot export `Task<string>`. Its facade exports `Task` and
   delivers each string through an explicit `[JSImport]` callback keyed by request
   ID. `app.mjs` exposes the same promise-returning UI API without blocking waits.
   Both runtimes share the same lock-free dictionary publication code without an
   extra JavaScript queue; rejected chunks do not poison later loads.
 - NetWasm does not expose `HtmlEncoder`. Its target-specific visitor encoding
-  escapes `&`, `<`, `>`, both quote characters, and preserves Unicode; desktop
-  continues using `HtmlEncoder.Default`. Both source and dictionary text are encoded.
+  escapes `&`, `<`, `>`, both quote characters, and preserves Unicode; the .NET 10
+  target uses `HtmlEncoder.Default`. Both source and dictionary text are encoded.
 - NetWasm has no managed threading/shared heap. `Interlocked` follows its
-  single-reactor semantics there and provides atomic publication on desktop.
+  single-reactor semantics there and provides atomic publication on .NET 10.
   Annotations use a volatile read of one immutable snapshot for their entire call.
 - NetWasm is pre-1.0 and has separate compiler/tooling licensing; review the
   upstream license before commercial adoption. Strings/arrays still copy at its
   JavaScript boundary; no zero-allocation or universal near-native-speed claim
   is made.
 
-Desktop Native AOT uses the existing CLI (replace the RID for another host):
-
-```sh
-dotnet publish src/PhoneticAnnotator.Cli/PhoneticAnnotator.Cli.csproj -c Release -r linux-x64 -p:PublishAot=true -o artifacts/linux-x64
-artifacts/linux-x64/PhoneticAnnotator.Cli --lexicon data/examples/word-readings.tsv --language ja-JP --text 食べる --format html
-```
-
-Native AOT publishing can report IL2026/IL3050 warnings from pre-existing Unihan
-reflection-based JSON helper APIs. The CLI annotation path does not call those
-helpers; its HTML/JSON word-lexicon smoke checks are exercised separately.
-
 ### CI and GitHub Pages
 
 1. Merge the workflow onto the default branch and enable **Settings → Pages →
    Build and deployment → Source: GitHub Actions** (requires repository admin access).
-2. Push to `main`, or open **Actions → Desktop and WebAssembly → Run workflow**
-   and select `main`. Pull requests and other branch pushes build/test but never
-   deploy Pages.
+2. Push to `main`, or open **Actions → Browser WebAssembly and Pages → Run workflow**
+   and select the branch to deploy. Manual dispatch can deploy any branch, subject
+   to the `github-pages` environment's deployment rules. Pull requests and other
+   branch pushes build/test without deploying Pages.
 3. Approve the `github-pages` environment deployment if your repository requires it.
    The deploy job exposes the resulting Pages URL, normally
    `https://<owner>.github.io/PhoneticAnnotator/`.
 
-The workflow tests desktop Native AOT on Linux/Windows x64 and ARM64 and macOS
-ARM64/x64. A single `browser-build` job publishes both browser runtimes and uploads
+Deployments support browsers only; there is no native deployment matrix.
+A single `browser-build` job runs managed tests once, publishes both browser runtimes, and uploads
 the combined `phoneticannotator-browser-site` artifact. Each browser matrix job
 downloads that same site, without rebuilding or installing WASM build tools.
 It tests **both** browser runtimes in Chromium, Firefox, and WebKit,
 including AST parity, alignment, dictionary uploads/recovery, and HTML escaping.
 The combined site serves Microsoft WASM at the root and NetWasm at `/netwasm/`,
-with runtime links in the UI. Pages deployment waits for the native and browser
-matrices, deploys the shared site tested by Chromium, skips stale `main` revisions,
+with runtime links in the UI. Pages deployment waits for the entire browser
+matrix, deploys the shared site tested by Chromium, skips stale revisions by
+checking the current run's `GITHUB_REF` (including manually selected branches),
 and runs Chromium against both live pages. Browser reports are uploaded separately
 without duplicating the site in each test artifact.
 Only the deployment job receives Pages write/OIDC permissions.
@@ -158,7 +177,7 @@ dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Relea
 dotnet publish src/PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj -c Release -o artifacts/netwasm
 mkdir -p artifacts/site/PhoneticAnnotator/netwasm
 cp -a src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot/. artifacts/site/PhoneticAnnotator/
-cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/site/PhoneticAnnotator/netwasm/
+cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/netwasm/Unihan_Readings.txt artifacts/netwasm/THIRD-PARTY-NOTICES.txt artifacts/site/PhoneticAnnotator/netwasm/
 cd tools/browser-tests
 npm ci
 npx playwright install --with-deps

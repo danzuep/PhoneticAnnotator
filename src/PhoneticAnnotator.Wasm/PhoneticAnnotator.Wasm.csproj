@@ -18,6 +18,10 @@
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../data/examples/word-readings.tsv" Link="wwwroot/word-readings.tsv"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../data/Unihan_Readings.txt" Link="wwwroot/Unihan_Readings.txt"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../THIRD-PARTY-NOTICES.md" Link="wwwroot/THIRD-PARTY-NOTICES.txt"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

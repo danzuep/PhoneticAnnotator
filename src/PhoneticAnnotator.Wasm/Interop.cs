@@ -27,6 +27,10 @@ public static partial class Interop
         Session.AnnotateToJson(text, optionsJson);
 
     [JSExport]
+    public static Task LoadUnihanDictionary(byte[] dictionaryData, string readingId) =>
+        Session.LoadUnihanDictionary(dictionaryData, readingId);
+
+    [JSExport]
     public static Task LoadDictionaryChunk(byte[] dictionaryData) =>
         Session.LoadDictionaryChunk(dictionaryData);
 }

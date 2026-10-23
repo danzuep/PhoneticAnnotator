@@ -162,11 +162,11 @@ public enum ReadingResolution
 }
 
 /// <summary>
-/// A token paired with its conservative reading-resolution result.
+/// A token paired with its reading-resolution result.
 /// </summary>
 /// <param name="SourceToken">The original token.</param>
 /// <param name="Status">The resolution state.</param>
-/// <param name="ResolvedReading">The reading when exactly one candidate is available.</param>
+/// <param name="ResolvedReading">The selected reading when the token is resolved.</param>
 public sealed record DisambiguatedToken(
     MemoryToken SourceToken,
     ReadingResolution Status,
@@ -178,7 +178,7 @@ public sealed record DisambiguatedToken(
 public interface IPhoneticDisambiguator
 {
     /// <summary>
-    /// Resolves unambiguous candidate sets and preserves the remaining states.
+    /// Resolves candidate sets according to the configured selection policy.
     /// </summary>
     /// <param name="tokens">The input token sequence.</param>
     /// <param name="cancellationToken">A token used to cancel enumeration.</param>
