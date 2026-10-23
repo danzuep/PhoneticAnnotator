@@ -11,7 +11,7 @@
     h1 { line-height: 1.2; }
     fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
     .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 1rem 0; }
-    label { display: block; }
+    label { display: block; min-width: 0; max-width: 100%; }
     textarea { box-sizing: border-box; width: 100%; min-height: 9rem; resize: vertical; font: inherit; padding: 1rem; }
     select, input, button { font: inherit; max-width: 100%; }
     #preview { min-height: 6rem; padding: 1rem; border: 1px solid #888; border-radius: .5rem; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 1.5rem; }
@@ -40,15 +40,15 @@
           <option value="ko" data-reading="kHangul">Korean · Hangul</option>
           <option value="vi" data-reading="kVietnamese">Vietnamese</option>
           <option value="za" data-reading="kZhuang">Zhuang</option>
-          <option value="kJapaneseOn" data-reading="kJapaneseOn">Japanese · On (romanized)</option>
-          <option value="kJapaneseKun" data-reading="kJapaneseKun">Japanese · Kun (romanized)</option>
-          <option value="kKorean" data-reading="kKorean">Korean · Romanized</option>
-          <option value="kHanyuPinlu" data-reading="kHanyuPinlu">Mandarin · Frequency readings</option>
-          <option value="kHanyuPinyin" data-reading="kHanyuPinyin">Mandarin · Hanyu Da Zidian</option>
-          <option value="kTGHZ2013" data-reading="kTGHZ2013">Mandarin · TGHZ 2013</option>
-          <option value="kXHC1983" data-reading="kXHC1983">Mandarin · XHC 1983</option>
-          <option value="kSMSZD2003Readings" data-reading="kSMSZD2003Readings">Mandarin · SMSZD 2003</option>
-          <option value="kSMSZD2003Readings-Cantonese" data-reading="kSMSZD2003Readings-Cantonese">Cantonese · SMSZD 2003</option>
+          <option value="kJapaneseOn" data-language="ja-JP" data-reading="kJapaneseOn">Japanese · On (romanized)</option>
+          <option value="kJapaneseKun" data-language="ja-JP" data-reading="kJapaneseKun">Japanese · Kun (romanized)</option>
+          <option value="kKorean" data-language="ko" data-reading="kKorean">Korean · Romanized</option>
+          <option value="kHanyuPinlu" data-language="zh-CN" data-reading="kHanyuPinlu">Mandarin · Frequency readings</option>
+          <option value="kHanyuPinyin" data-language="zh-CN" data-reading="kHanyuPinyin">Mandarin · Hanyu Da Zidian</option>
+          <option value="kTGHZ2013" data-language="zh-CN" data-reading="kTGHZ2013">Mandarin · TGHZ 2013</option>
+          <option value="kXHC1983" data-language="zh-CN" data-reading="kXHC1983">Mandarin · XHC 1983</option>
+          <option value="kSMSZD2003Readings" data-language="zh-CN" data-reading="kSMSZD2003Readings">Mandarin · SMSZD 2003</option>
+          <option value="kSMSZD2003Readings-Cantonese" data-language="zh-HK" data-reading="kSMSZD2003Readings-Cantonese">Cantonese · SMSZD 2003</option>
           <option value="ar" data-reading="ar">Arabic · Word dictionary only</option>
         </select>
       </label>

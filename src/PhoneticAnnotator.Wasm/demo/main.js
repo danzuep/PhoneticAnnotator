@@ -30,10 +30,15 @@ try {
     let unihanBytes;
     let loadedReading;
 
-    async function loadReading() {
+    async function loadReading(event) {
         ++requestId;
         controls.disabled = true;
         try {
+            const wordLanguage = language.selectedOptions[0].dataset.language;
+            if (wordLanguage) {
+                if (event?.target === strategy && strategy.value === 'word') language.value = wordLanguage;
+                else strategy.value = 'unihan';
+            }
             if (language.value === 'ar') strategy.value = 'word';
             const reading = language.selectedOptions[0].dataset.reading;
             if (strategy.value === 'unihan' && loadedReading !== reading) {
@@ -60,7 +65,7 @@ try {
         const id = ++requestId;
         const outputFormat = format.value;
         const options = JSON.stringify({
-            language: language.value,
+            language: language.selectedOptions[0].dataset.language ?? language.value,
             readingSystem: language.selectedOptions[0].dataset.reading,
             strategy: strategy.value,
             pickFirstReading: pickFirst.checked,
@@ -115,6 +120,8 @@ try {
                 await interop.LoadDictionaryChunk(new Uint8Array(await file.arrayBuffer()));
             }
             strategy.value = 'word';
+            const wordLanguage = language.selectedOptions[0].dataset.language;
+            if (wordLanguage) language.value = wordLanguage;
             await render();
         } catch (error) {
             status.textContent = `Dictionary load failed (previous chunks retained): ${error.message}`;

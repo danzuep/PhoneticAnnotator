@@ -42,7 +42,7 @@ public sealed class UnihanReadingDictionary
             var candidates = ParseCandidates(row[(secondTab + 1)..].ToString(), result.Option);
             if (candidates.Count == 0) continue;
             if (result._readings.TryGetValue(codepoint, out var existing))
-                candidates = existing.Concat(candidates).Distinct(StringComparer.Ordinal).ToArray();
+                candidates = Array.AsReadOnly(existing.Concat(candidates).Distinct(StringComparer.Ordinal).ToArray());
             result._readings[codepoint] = candidates;
         }
         if (result._readings.Count == 0)
