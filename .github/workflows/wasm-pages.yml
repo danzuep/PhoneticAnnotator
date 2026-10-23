@@ -83,6 +83,7 @@ jobs:
       - name: Install browser checks
         working-directory: tools/browser-tests
         run: |
+          dotnet tool install --global dotnet-serve --version 1.10.194
           npm ci
           npx playwright install --with-deps ${{ matrix.browser }}
       - name: Exercise both published runtimes under a project path
@@ -103,6 +104,7 @@ jobs:
     needs: [native, browser]
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:

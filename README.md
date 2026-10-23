@@ -8,14 +8,15 @@ Phonetic Annotator is a .NET 10 library and CLI for adding Mandarin, Cantonese/J
 
 `src/PhoneticAnnotator.Wasm` uses `Microsoft.NET.Sdk.WebAssembly`, `browser-wasm`,
 and direct `[JSExport]` / `[JSImport]` interop. It has no Blazor or ASP.NET Core
-runtime dependency. Install the .NET 10 SDK and Python 3, then run from the repository root:
+runtime dependency. Install the .NET 10 SDK, then run from the repository root:
 
 ```sh
 dotnet workload install wasm-tools
+dotnet tool install --global dotnet-serve
 dotnet build src/PhoneticAnnotator.slnx
 dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
 dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0
-python3 -m http.server 8000 --directory src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot
+dotnet serve --address 127.0.0.1 --port 8000 --directory src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot
 ```
 
 Open <http://localhost:8000>. Release publishing enables AOT compilation, trimming,
@@ -40,9 +41,13 @@ the in-memory annotation session before invoking `onReady`. The methods on
 - `LoadDictionaryChunk(uint8Array)` adds one **complete UTF-8 word-lexicon TSV**
   chunk: `language<TAB>word<TAB>reading1|reading2`, with optional comments/blank
   lines. Chunks are files, not fragments of a line or arbitrary Unihan/binary data.
-  Calls are serialized; malformed chunks leave the existing dictionary unchanged.
+  Chunks parse independently and publish atomically using `Interlocked.CompareExchange`;
+  malformed chunks leave the existing dictionary unchanged. Concurrent publications
+  retry against the latest snapshot, so successful chunks are never lost.
   Annotations capture immutable snapshots, so loads never mutate in-flight work.
-  Longest words win across chunks; newer chunks override equal-length matches.
+  Longest words win across chunks; the last published chunk wins equal-length ties.
+  Concurrent calls publish in completion order, not invocation order. Await each
+  load in sequence when override order matters (as the demo's file picker does).
   For efficiency, batch entries into a few substantial chunks rather than many tiny
   files (lookup cost grows with the number of chunks).
 
@@ -78,7 +83,7 @@ and share the UI, dictionary parsing, async token stream, alignment, AST, and vi
 
 ```sh
 dotnet publish src/PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj -c Release -o artifacts/netwasm
-python3 -m http.server 8001 --directory artifacts/netwasm
+dotnet serve --address 127.0.0.1 --port 8001 --directory artifacts/netwasm
 ```
 
 Open <http://localhost:8001>. The module opens the generated
@@ -95,13 +100,14 @@ Compatibility boundaries:
 - NetWasm 0.10.2 cannot export `Task<string>`. Its facade exports `Task` and
   delivers each string through an explicit `[JSImport]` callback keyed by request
   ID. `app.mjs` exposes the same promise-returning UI API without blocking waits.
-  Dictionary calls are queued in invocation order; rejected chunks do not poison
-  later loads. Publication has no suspension point on NetWasm's single reactor.
+  Both runtimes share the same lock-free dictionary publication code without an
+  extra JavaScript queue; rejected chunks do not poison later loads.
 - NetWasm does not expose `HtmlEncoder`. Its target-specific visitor encoding
   escapes `&`, `<`, `>`, both quote characters, and preserves Unicode; desktop
   continues using `HtmlEncoder.Default`. Both source and dictionary text are encoded.
-- NetWasm has no managed threading/shared heap. Desktop retains its semaphore and
-  volatile publication; NetWasm uses its single-reactor execution model.
+- NetWasm has no managed threading/shared heap. `Interlocked` follows its
+  single-reactor semantics there and provides atomic publication on desktop.
+  Annotations use a volatile read of one immutable snapshot for their entire call.
 - NetWasm is pre-1.0 and has separate compiler/tooling licensing; review the
   upstream license before commercial adoption. Strings/arrays still copy at its
   JavaScript boundary; no zero-allocation or universal near-native-speed claim
@@ -154,7 +160,9 @@ npx playwright install --with-deps
 npm test
 ```
 
-The test runner starts a local Python HTTP server under `/PhoneticAnnotator/`.
+Install the local server once with `dotnet tool install --global dotnet-serve`
+(CI pins version `1.10.194`). The test runner starts `dotnet serve` under
+`/PhoneticAnnotator/`, bound to loopback only.
 To test an already hosted combined site instead, set `PHONETIC_BASE_URL` to its
 HTTPS URL **ending in `/`**; it then skips the local server. Test traces/reports
 are written under `artifacts/`. No audio, desktop GUI, game fixtures, or unrelated
