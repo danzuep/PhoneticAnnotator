@@ -150,24 +150,32 @@ Compatibility boundaries:
    Build and deployment → Source: GitHub Actions** (requires repository admin access).
 2. Push to `main`, or open **Actions → Browser WebAssembly and Pages → Run workflow**
    and select the branch to deploy. Manual dispatch can deploy any branch, subject
-   to the `github-pages` environment's deployment rules. Pull requests and other
-   branch pushes build/test without deploying Pages.
+   to the `github-pages` environment's deployment rules. Pull requests build/test
+   without deploying Pages. Other branch pushes do not start a duplicate workflow;
+   open a pull request or dispatch the workflow manually.
 3. Approve the `github-pages` environment deployment if your repository requires it.
    The deploy job exposes the resulting Pages URL, normally
    `https://<owner>.github.io/PhoneticAnnotator/`.
 
 Deployments support browsers only; there is no native deployment matrix.
 A single `browser-build` job runs managed tests once, publishes both browser runtimes, and uploads
-the combined `phoneticannotator-browser-site` artifact. Each browser matrix job
+the combined `phoneticannotator-browser-site` artifact. The Chromium check job
 downloads that same site, without rebuilding or installing WASM build tools.
-It tests **both** browser runtimes in Chromium, Firefox, and WebKit,
+It tests **both** browser runtimes in Chromium only,
 including AST parity, alignment, dictionary uploads/recovery, and HTML escaping.
 The combined site serves Microsoft WASM at the root and NetWasm at `/netwasm/`,
-with runtime links in the UI. Pages deployment waits for the entire browser
-matrix, deploys the shared site tested by Chromium, skips stale revisions by
+with runtime links in the UI. Pages deployment waits for the Chromium checks,
+deploys the shared site tested by Chromium, skips stale revisions by
 checking the current run's `GITHUB_REF` (including manually selected branches),
 and runs Chromium against both live pages. Browser reports are uploaded separately
 without duplicating the site in each test artifact.
+Firefox and WebKit are skipped in CI, including their Ubuntu package downloads;
+their Playwright projects remain available for optional local checks.
+CI installs only Chromium's headless shell, caches npm downloads and build-job NuGet
+packages, and skips WASM workload manifest refreshes. New PR revisions cancel
+superseded PR runs, while main/manual deployments are not cancelled mid-deploy.
+Release AOT and both runtime publishes remain enabled so deployment tests exercise
+the actual optimized bundles.
 Only the deployment job receives Pages write/OIDC permissions.
 Agent-authored workflow runs may require a maintainer's **Approve and run**
 before any jobs start; no Pages deployment occurs until those checks complete.
@@ -183,8 +191,8 @@ cp -a src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot/. artifacts
 cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/netwasm/Unihan_Readings.txt artifacts/netwasm/THIRD-PARTY-NOTICES.txt artifacts/site/PhoneticAnnotator/netwasm/
 cd tools/browser-tests
 npm ci
-npx playwright install --with-deps
-npm test
+npx playwright install --with-deps --only-shell chromium
+npm test -- --project=chromium
 ```
 
 Install the local server once with `dotnet tool install --global dotnet-serve`
