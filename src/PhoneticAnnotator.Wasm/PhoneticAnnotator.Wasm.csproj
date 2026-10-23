@@ -14,7 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../PhoneticAnnotator.Core/PhoneticAnnotator.Core.csproj" />
-    <SupportedPlatform Include="browser" />
     <Content Include="demo/**/*" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../data/examples/word-readings.tsv" Link="wwwroot/word-readings.tsv"
