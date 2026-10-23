@@ -1,4 +1,4 @@
-import { dotnet } from './_framework/dotnet.js';
+export async function startDemo(createInterop, runtimeName) {
 
 const status = document.querySelector('#status');
 const controls = document.querySelector('#controls');
@@ -12,17 +12,13 @@ const latency = document.querySelector('#latency');
 let requestId = 0;
 
 try {
-    const { setModuleImports, getAssemblyExports, getConfig, runMain } = await dotnet
-        .withDiagnosticTracing(false)
-        .create();
-
-    setModuleImports('phonetic-demo', {
-        onReady: () => { status.textContent = '.NET initialized; loading example dictionary…'; }
-    });
-
-    const exports = await getAssemblyExports('PhoneticAnnotator.Wasm');
-    const interop = exports.PhoneticAnnotator.Wasm.Interop;
-    await runMain(getConfig().mainAssemblyName, []);
+    document.querySelector('#runtime').textContent = runtimeName;
+    status.textContent = `Starting ${runtimeName}…`;
+    const links = document.querySelectorAll('nav a');
+    const isNetWasm = runtimeName === 'NetWasm';
+    links[0].href = isNetWasm ? '../' : './';
+    links[1].href = isNetWasm ? './' : './netwasm/';
+    const interop = await createInterop();
 
     const response = await fetch('./word-readings.tsv');
     if (!response.ok) {
@@ -89,4 +85,5 @@ try {
 } catch (error) {
     controls.disabled = true;
     status.textContent = `Startup failed: ${error.message}`;
+}
 }

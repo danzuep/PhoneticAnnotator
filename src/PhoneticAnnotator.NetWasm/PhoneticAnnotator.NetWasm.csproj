@@ -1,0 +1,17 @@
+<Project Sdk="NetWasm.Sdk/0.10.2">
+  <PropertyGroup>
+    <OutputType>JsModule</OutputType>
+    <NetWasmJavaScriptHosts>page</NetWasmJavaScriptHosts>
+    <TargetFramework>netwasm0.1</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../PhoneticAnnotator.Core/PhoneticAnnotator.Core.csproj" />
+    <Compile Include="../PhoneticAnnotator.Wasm/AnnotationSession.cs" Link="AnnotationSession.cs" />
+    <Content Include="app.mjs" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../PhoneticAnnotator.Wasm/demo/index.html" Link="index.html" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../PhoneticAnnotator.Wasm/demo/main.js" Link="main.js" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../data/examples/word-readings.tsv" Link="word-readings.tsv" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

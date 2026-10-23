@@ -1,21 +1,67 @@
-name: Deploy native WASM demo to Pages
+name: Desktop and WebAssembly
 
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: wasm-pages
-  cancel-in-progress: false
-
 jobs:
-  build:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: windows-latest
+            rid: win-x64
+          - os: windows-11-arm
+            rid: win-arm64
+          - os: macos-latest
+            rid: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-dotnet@v4.3.1
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Linux AOT dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y clang zlib1g-dev
+      - name: Test desktop pipeline
+        run: dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
+      - name: Publish native AOT CLI
+        run: dotnet publish src/PhoneticAnnotator.Cli/PhoneticAnnotator.Cli.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -o artifacts/${{ matrix.rid }}
+      - name: Exercise native annotation pipeline
+        shell: bash
+        run: |
+          executable="artifacts/${{ matrix.rid }}/PhoneticAnnotator.Cli"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then executable="${executable}.exe"; fi
+          "$executable" --lexicon data/examples/word-readings.tsv --language ja-JP --text '食べる' --format html | tee artifacts/native.html
+          grep -q '<ruby>' artifacts/native.html
+          "$executable" --lexicon data/examples/word-readings.tsv --language zh-CN --text '你好重庆' --format json | tee artifacts/native.json
+          grep -q '"type":"unresolved"' artifacts/native.json
+          "$executable" --lexicon data/examples/word-readings.tsv --language ar --text 'كتب' --format html | tee artifacts/native-arabic.html
+          grep -q 'phonetic-annotation' artifacts/native-arabic.html
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: phoneticannotator-${{ matrix.rid }}
+          path: artifacts/
+
+  browser:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-dotnet@v4.3.1
@@ -23,17 +69,38 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Install native WASM tools
         run: dotnet workload install wasm-tools
-      - uses: actions/configure-pages@v5.0.0
-      - name: Test
-        run: dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '24'
       - name: Publish AOT browser bundle
         run: dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0
+      - name: Publish alternative NetWasm runtime and assemble static site
+        run: |
+          dotnet publish src/PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj -c Release -o artifacts/netwasm
+          mkdir -p artifacts/site/PhoneticAnnotator/netwasm
+          cp -a src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot/. artifacts/site/PhoneticAnnotator/
+          cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/site/PhoneticAnnotator/netwasm/
+      - name: Install browser checks
+        working-directory: tools/browser-tests
+        run: |
+          npm ci
+          npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Exercise both published runtimes under a project path
+        working-directory: tools/browser-tests
+        run: npm test -- --project=${{ matrix.browser }}
       - uses: actions/upload-pages-artifact@v3.0.1
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && matrix.browser == 'chromium'
         with:
-          path: src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot
+          path: artifacts/site/PhoneticAnnotator
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: phoneticannotator-browser-${{ matrix.browser }}
+          path: artifacts/
 
-  deploy:
-    needs: build
+  pages:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [native, browser]
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -41,7 +108,47 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
     steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Check whether this run is still current
+        id: current
+        shell: bash
+        run: |
+          latest_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [[ -z "$latest_sha" ]]; then
+            echo "::error::Could not resolve the current main commit"
+            exit 1
+          fi
+          if [[ "$latest_sha" == "$GITHUB_SHA" ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping stale Pages deployment"
+          fi
+      - uses: actions/configure-pages@v5.0.0
+        if: steps.current.outputs.deploy == 'true'
       - name: Deploy GitHub Pages
         id: deployment
+        if: steps.current.outputs.deploy == 'true'
         uses: actions/deploy-pages@v4.0.5
+      - uses: actions/setup-node@v4.4.0
+        if: steps.current.outputs.deploy == 'true'
+        with:
+          node-version: '24'
+      - name: Verify both live Pages runtimes
+        if: steps.current.outputs.deploy == 'true'
+        working-directory: tools/browser-tests
+        env:
+          PHONETIC_BASE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          curl --fail --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "$PHONETIC_BASE_URL" > /dev/null
+          npm test -- --project=chromium
+      - uses: actions/upload-artifact@v4.6.2
+        if: always() && steps.current.outputs.deploy == 'true'
+        with:
+          name: phoneticannotator-live-pages
+          path: artifacts/
