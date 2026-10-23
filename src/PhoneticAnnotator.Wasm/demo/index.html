@@ -32,12 +32,30 @@
     <label for="text">Text</label>
     <textarea id="text" spellcheck="false">食べる</textarea>
     <div class="controls">
-      <label>Language
+      <label>Reading system
         <select id="language">
-          <option value="ja-JP">Japanese</option>
-          <option value="zh-CN">Mandarin</option>
-          <option value="zh-HK">Cantonese</option>
-          <option value="ar">Arabic</option>
+          <option value="ja-JP" data-reading="kJapanese">Japanese · Kana</option>
+          <option value="zh-CN" data-reading="kMandarin">Mandarin · Pinyin</option>
+          <option value="zh-HK" data-reading="kCantonese">Cantonese · Jyutping</option>
+          <option value="ko" data-reading="kHangul">Korean · Hangul</option>
+          <option value="vi" data-reading="kVietnamese">Vietnamese</option>
+          <option value="za" data-reading="kZhuang">Zhuang</option>
+          <option value="kJapaneseOn" data-reading="kJapaneseOn">Japanese · On (romanized)</option>
+          <option value="kJapaneseKun" data-reading="kJapaneseKun">Japanese · Kun (romanized)</option>
+          <option value="kKorean" data-reading="kKorean">Korean · Romanized</option>
+          <option value="kHanyuPinlu" data-reading="kHanyuPinlu">Mandarin · Frequency readings</option>
+          <option value="kHanyuPinyin" data-reading="kHanyuPinyin">Mandarin · Hanyu Da Zidian</option>
+          <option value="kTGHZ2013" data-reading="kTGHZ2013">Mandarin · TGHZ 2013</option>
+          <option value="kXHC1983" data-reading="kXHC1983">Mandarin · XHC 1983</option>
+          <option value="kSMSZD2003Readings" data-reading="kSMSZD2003Readings">Mandarin · SMSZD 2003</option>
+          <option value="kSMSZD2003Readings-Cantonese" data-reading="kSMSZD2003Readings-Cantonese">Cantonese · SMSZD 2003</option>
+          <option value="ar" data-reading="ar">Arabic · Word dictionary only</option>
+        </select>
+      </label>
+      <label>Dictionary strategy
+        <select id="strategy">
+          <option value="unihan">Unihan character readings</option>
+          <option value="word">Word dictionary (examples / uploaded TSV)</option>
         </select>
       </label>
       <label>Output
@@ -47,6 +65,8 @@
         </select>
       </label>
       <label><input id="alignment" type="checkbox" checked> Align Japanese okurigana</label>
+      <label><input id="pick-first" type="checkbox" checked> Pick first reading when ambiguous</label>
+      <button id="example" type="button">Use example text</button>
       <label>Load dictionary chunks (UTF-8 TSV)
         <input id="dictionary" type="file" accept=".tsv,text/tab-separated-values" multiple>
       </label>
@@ -54,8 +74,13 @@
   </fieldset>
   <h2>Preview <output id="latency" aria-label="Annotation latency">— ms</output></h2>
   <div id="preview" aria-live="polite"></div>
-  <p>The bundled dictionary contains examples only: 食べる, 你好, 重庆, كتب.
-    Unknown text is preserved; ambiguous readings remain unresolved in JSON.</p>
+  <p>Unihan uses the bundled Unicode 18 character readings, not a morphological dictionary.
+    First-reading selection is a heuristic, not contextual disambiguation; uncheck it to preserve
+    ambiguous candidates in JSON. Unknown text is preserved.</p>
+  <p>The word dictionary contains examples: 食べる, 你好, 重庆, كتب; upload TSV files to extend it.
+    Unihan is downloaded once (about 8.5 MB); only the selected field is indexed in memory.
+    Historical Tang/fanqie readings and definitions are omitted.
+    <a href="./THIRD-PARTY-NOTICES.txt">Data and runtime notices</a>.</p>
   <script type="module" src="app.mjs"></script>
 </body>
 </html>

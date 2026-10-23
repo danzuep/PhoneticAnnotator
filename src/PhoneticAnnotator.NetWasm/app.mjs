@@ -23,6 +23,7 @@ await startDemo(async () => {
     return {
         AnnotateToHtml: (text, options) => annotate('AnnotateToHtml', text, options),
         AnnotateToJson: (text, options) => annotate('AnnotateToJson', text, options),
+        LoadUnihanDictionary: (data, readingId) => app.LoadUnihanDictionary(data, readingId),
         LoadDictionaryChunk: data => app.LoadDictionaryChunk(data)
     };
 }, 'NetWasm');
