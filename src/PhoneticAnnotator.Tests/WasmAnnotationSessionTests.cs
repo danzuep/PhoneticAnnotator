@@ -101,19 +101,53 @@ public sealed class WasmAnnotationSessionTests
     public async Task ConcurrentLoadsAndAnnotations_PublishCompleteSnapshots()
     {
         var session = new AnnotationSession();
-        var work = Enumerable.Range(0, 20).Select(index => Task.Run(async () =>
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var work = Enumerable.Range(0, 64).Select(index => Task.Run(async () =>
         {
+            await start.Task;
             await session.LoadDictionaryChunk(Encoding.UTF8.GetBytes($"zh-CN\t词{index}\treading{index}\n"));
             using var json = JsonDocument.Parse(await session.AnnotateToJson($"词{index}", """{"language":"zh-CN"}"""));
             Assert.Equal("ruby", json.RootElement.GetProperty("children")[0].GetProperty("type").GetString());
-        }));
+        })).ToArray();
+        start.SetResult();
         await Task.WhenAll(work);
 
-        for (var index = 0; index < 20; index++)
+        for (var index = 0; index < 64; index++)
         {
             using var json = JsonDocument.Parse(await session.AnnotateToJson($"词{index}", """{"language":"zh-CN"}"""));
             Assert.Equal($"reading{index}", json.RootElement.GetProperty("children")[0].GetProperty("glossText").GetString());
         }
+    }
+
+    [Fact]
+    public async Task ConcurrentOverrides_KeepEachAnnotationOnOneSnapshot()
+    {
+        var session = new AnnotationSession();
+        await session.LoadDictionaryChunk(Encoding.UTF8.GetBytes("zh-CN\t词\tinitial\n"));
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var writers = Enumerable.Range(0, 32).Select(index => Task.Run(async () =>
+        {
+            await start.Task;
+            await session.LoadDictionaryChunk(Encoding.UTF8.GetBytes($"zh-CN\t词\treading{index}\n"));
+        })).ToArray();
+        var reader = Task.Run(async () =>
+        {
+            await start.Task;
+            for (var index = 0; index < 32; index++)
+            {
+                using var json = JsonDocument.Parse(await session.AnnotateToJson(
+                    new string('词', 64), """{"language":"zh-CN"}"""));
+                var readings = json.RootElement.GetProperty("children").EnumerateArray()
+                    .Select(node => node.GetProperty("glossText").GetString()).Distinct();
+                Assert.Single(readings);
+            }
+        });
+        start.SetResult();
+        await Task.WhenAll(writers.Append(reader));
+
+        await session.LoadDictionaryChunk(Encoding.UTF8.GetBytes("zh-CN\t词\tlast\n"));
+        using var final = JsonDocument.Parse(await session.AnnotateToJson("词", """{"language":"zh-CN"}"""));
+        Assert.Equal("last", final.RootElement.GetProperty("children")[0].GetProperty("glossText").GetString());
     }
 
     [Theory]

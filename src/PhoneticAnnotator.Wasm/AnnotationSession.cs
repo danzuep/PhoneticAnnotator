@@ -8,9 +8,6 @@ namespace PhoneticAnnotator.Wasm;
 
 public sealed class AnnotationSession
 {
-#if !NETWASM
-    private readonly SemaphoreSlim _dictionaryGate = new(1, 1);
-#endif
     private WordReadingLexicon[] _lexicons = [];
 
     public Task<string> AnnotateToHtml(string text, string optionsJson) =>
@@ -28,23 +25,18 @@ public sealed class AnnotationSession
             throw new ArgumentException("A dictionary chunk must contain a complete UTF-8 TSV file.", nameof(dictionaryData));
         }
 
-#if !NETWASM
-        await _dictionaryGate.WaitAsync().ConfigureAwait(false);
-        try
+        // Parse once before publishing; a failed chunk never changes shared state.
+        using var stream = new MemoryStream(dictionaryData, writable: false);
+        var lexicon = await WordReadingLexicon.LoadAsync(stream).ConfigureAwait(false);
+        while (true)
         {
-#endif
-            // MemoryStream wraps the marshaled array without copying it.
-            using var stream = new MemoryStream(dictionaryData, writable: false);
-            var lexicon = await WordReadingLexicon.LoadAsync(stream).ConfigureAwait(false);
             var current = Volatile.Read(ref _lexicons);
-            Volatile.Write(ref _lexicons, [.. current, lexicon]);
-#if !NETWASM
+            WordReadingLexicon[] updated = [.. current, lexicon];
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _lexicons, updated, current), current))
+            {
+                return;
+            }
         }
-        finally
-        {
-            _dictionaryGate.Release();
-        }
-#endif
     }
 
     private async Task<string> AnnotateAsync(string text, string optionsJson, IGlossAstVisitor visitor)

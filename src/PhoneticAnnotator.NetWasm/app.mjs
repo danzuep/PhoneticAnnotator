@@ -4,7 +4,6 @@ await startDemo(async () => {
     const { open } = await import('./browser/PhoneticAnnotator.NetWasm.mjs');
     const results = new Map();
     let requestId = 0;
-    let dictionaryQueue = Promise.resolve();
     const app = await open({
         modules: { 'phonetic.results': {
             complete: (id, result) => results.set(id, result)
@@ -24,10 +23,6 @@ await startDemo(async () => {
     return {
         AnnotateToHtml: (text, options) => annotate('AnnotateToHtml', text, options),
         AnnotateToJson: (text, options) => annotate('AnnotateToJson', text, options),
-        LoadDictionaryChunk: data => {
-            const load = dictionaryQueue.then(() => app.LoadDictionaryChunk(data));
-            dictionaryQueue = load.catch(() => {});
-            return load;
-        }
+        LoadDictionaryChunk: data => app.LoadDictionaryChunk(data)
     };
 }, 'NetWasm');

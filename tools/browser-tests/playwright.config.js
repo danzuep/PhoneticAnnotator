@@ -15,7 +15,7 @@ export default defineConfig({
         { name: 'webkit', use: { ...devices['Desktop Safari'] } }
     ],
     webServer: process.env.PHONETIC_BASE_URL ? undefined : {
-        command: 'python3 -m http.server 5187 --bind 127.0.0.1 --directory ../../artifacts/site',
+        command: 'dotnet serve --address 127.0.0.1 --port 5187 --directory ../../artifacts/site',
         url: baseURL,
         reuseExistingServer: !process.env.CI
     }

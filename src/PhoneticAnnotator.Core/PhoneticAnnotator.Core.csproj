@@ -19,7 +19,6 @@
     <Compile Include="../Unihan/Models/UnihanField.cs" Link="UnihanField.cs" />
     <PackageReference Include="NetWasm.System.Linq" Version="0.10.0" />
     <PackageReference Include="NetWasm.System.Text.Json" Version="0.10.0" />
-    <PackageReference Include="NetWasm.System.Text.Encodings.Web" Version="0.10.0" />
   </ItemGroup>
 
 </Project>
