@@ -1,4 +1,7 @@
 using System.Runtime.InteropServices.JavaScript;
+using System.Runtime.Versioning;
+
+[assembly: SupportedOSPlatform("browser")]
 
 namespace PhoneticAnnotator.Wasm;
 
