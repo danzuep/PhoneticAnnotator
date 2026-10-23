@@ -136,11 +136,16 @@ helpers; its HTML/JSON word-lexicon smoke checks are exercised separately.
    `https://<owner>.github.io/PhoneticAnnotator/`.
 
 The workflow tests desktop Native AOT on Linux/Windows x64 and ARM64 and macOS
-ARM64/x64. It tests **both** browser runtimes in Chromium, Firefox, and WebKit,
+ARM64/x64. A single `browser-build` job publishes both browser runtimes and uploads
+the combined `phoneticannotator-browser-site` artifact. Each browser matrix job
+downloads that same site, without rebuilding or installing WASM build tools.
+It tests **both** browser runtimes in Chromium, Firefox, and WebKit,
 including AST parity, alignment, dictionary uploads/recovery, and HTML escaping.
 The combined site serves Microsoft WASM at the root and NetWasm at `/netwasm/`,
 with runtime links in the UI. Pages deployment waits for the native and browser
-matrices, skips stale `main` revisions, and runs Chromium against both live pages.
+matrices, deploys the shared site tested by Chromium, skips stale `main` revisions,
+and runs Chromium against both live pages. Browser reports are uploaded separately
+without duplicating the site in each test artifact.
 Only the deployment job receives Pages write/OIDC permissions.
 Agent-authored workflow runs may require a maintainer's **Approve and run**
 before any jobs start; no Pages deployment occurs until those checks complete.

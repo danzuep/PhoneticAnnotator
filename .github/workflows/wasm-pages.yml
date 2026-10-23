@@ -56,7 +56,32 @@ jobs:
           name: phoneticannotator-${{ matrix.rid }}
           path: artifacts/
 
+  browser-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-dotnet@v4.3.1
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install native WASM tools
+        run: dotnet workload install wasm-tools
+      - name: Publish AOT browser bundle
+        run: dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0
+      - name: Publish alternative NetWasm runtime and assemble static site
+        run: |
+          dotnet publish src/PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj -c Release -o artifacts/netwasm
+          mkdir -p artifacts/site/PhoneticAnnotator/netwasm
+          cp -a src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot/. artifacts/site/PhoneticAnnotator/
+          cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/site/PhoneticAnnotator/netwasm/
+      - name: Upload shared browser site
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: phoneticannotator-browser-site
+          path: artifacts/site/
+          if-no-files-found: error
+
   browser:
+    needs: browser-build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -67,19 +92,14 @@ jobs:
       - uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: '10.0.x'
-      - name: Install native WASM tools
-        run: dotnet workload install wasm-tools
       - uses: actions/setup-node@v4.4.0
         with:
           node-version: '24'
-      - name: Publish AOT browser bundle
-        run: dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0
-      - name: Publish alternative NetWasm runtime and assemble static site
-        run: |
-          dotnet publish src/PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj -c Release -o artifacts/netwasm
-          mkdir -p artifacts/site/PhoneticAnnotator/netwasm
-          cp -a src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot/. artifacts/site/PhoneticAnnotator/
-          cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/site/PhoneticAnnotator/netwasm/
+      - name: Download shared browser site
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: phoneticannotator-browser-site
+          path: artifacts/site/
       - name: Install browser checks
         working-directory: tools/browser-tests
         run: |
@@ -97,7 +117,9 @@ jobs:
         if: always()
         with:
           name: phoneticannotator-browser-${{ matrix.browser }}
-          path: artifacts/
+          path: |
+            artifacts/browser-results/
+            artifacts/browser-report/
 
   pages:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
