@@ -81,12 +81,27 @@ for (const runtime of [{ path: './', name: '.NET' }, { path: './netwasm/', name:
 
     test(`${runtime.name}: defaults, metadata, local text upload and startup diagnostics`, async ({ page }) => {
         const dictionaryRequests = [];
+        let releaseRuntime;
+        const runtimeGate = new Promise(resolve => { releaseRuntime = resolve; });
+        const runtimeModule = runtime.name === '.NET'
+            ? '**/_framework/dotnet.js' : '**/browser/PhoneticAnnotator.NetWasm.mjs';
+        await page.route(runtimeModule, async route => {
+            await runtimeGate;
+            await route.continue();
+        });
         page.on('request', request => {
             if (/\/(word-readings\.tsv|Unihan_Readings\.txt)$/.test(new URL(request.url()).pathname)) {
                 dictionaryRequests.push(request.url());
             }
         });
-        await ready(page, runtime.path);
+        await page.goto(runtime.path, { waitUntil: 'commit' });
+        try {
+            // Both dictionaries must start downloading even while runtime startup is blocked.
+            await expect.poll(() => dictionaryRequests.length).toBe(2);
+        } finally {
+            releaseRuntime();
+        }
+        await expect(page.locator('#status')).toHaveText('Ready. Text and dictionaries stay in this browser.');
         await expect(page.locator('#language')).toHaveValue('zh-CN');
         await expect(page.locator('#text')).toHaveValue('你好');
         await expect(page.locator('#preview ruby rt')).toHaveText(['nǐ', 'hǎo']);
@@ -139,6 +154,14 @@ for (const runtime of [{ path: './', name: '.NET' }, { path: './netwasm/', name:
         await page.locator('#text').fill('你好');
         await expect(page.locator('#preview ruby rt')).toHaveText('nǐ hǎo');
         expect(dictionaryRequests).toHaveLength(2);
+        await page.locator('#language').selectOption('zh-HK');
+        await page.locator('#example').click();
+        await expect(page.locator('#preview ruby rt')).toHaveText('nei5 hou2');
+        await page.locator('#text-file').setInputFiles({
+            name: 'example.md', mimeType: 'text/markdown', buffer: Buffer.from('你好')
+        });
+        await expect(page.locator('#text')).toHaveValue('你好');
+        await expect(page.locator('#controls')).toBeEnabled();
         await page.locator('#language').selectOption('ar');
         await page.locator('#text').fill('كتب');
         await expect(page.locator('#character-metadata')).not.toContainText('kMandarin');

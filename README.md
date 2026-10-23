@@ -95,7 +95,7 @@ runtime/dictionary startup and DOM rendering.
 Both demos start with Mandarin/Pinyin and the unambiguous example 你好. The Japanese
 example is 山林, whose first character readings give サンリン, rather than using
 食べる with the character-reading heuristic. Japanese alignment controls are hidden
-for other languages. Import UTF-8 `.txt` files locally using the text picker;
+for other languages. Import UTF-8 `.txt` or `.md` files locally using the text picker;
 neither text nor dictionaries are sent to a server.
 
 The collapsed **Character metadata** panel shows raw fields and all alternatives

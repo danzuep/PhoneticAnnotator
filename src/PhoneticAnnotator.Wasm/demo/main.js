@@ -1,3 +1,5 @@
+const demoModuleStartedAt = performance.now();
+
 export async function startDemo(createInterop, runtimeName) {
 
 const status = document.querySelector('#status');
@@ -29,7 +31,7 @@ function showTimings() {
     list.replaceChildren();
     const navigation = performance.getEntriesByType('navigation')[0];
     const values = new Map([
-        ['Page to demo module', performance.getEntriesByName(new URL('./main.js', import.meta.url).href)[0]?.responseEnd ?? 0],
+        ['Page to demo module execution', demoModuleStartedAt],
         ['Document response', navigation?.responseEnd ?? 0],
         ['DOM ready', navigation?.domContentLoadedEventEnd ?? 0],
         ['Page load event', navigation?.loadEventEnd ?? 0],
