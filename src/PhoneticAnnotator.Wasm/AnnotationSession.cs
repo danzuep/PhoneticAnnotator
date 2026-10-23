@@ -71,6 +71,7 @@ public sealed class AnnotationSession
                 _ => throw new ArgumentException($"Unsupported language '{languageTag}'.", nameof(optionsJson))
             };
         var selected = readingId == "ar" ? null : UnihanReadingOption.Get(readingId);
+        readingId = selected?.Id ?? readingId;
         var language = selected?.Language ?? new LanguageCode("ar");
         var readingSystem = selected?.ReadingSystem ?? ReadingSystem.ArabicTashkeel;
         var useUnihan = options.RootElement.TryGetProperty("strategy", out var strategyOption)
@@ -80,6 +81,17 @@ public sealed class AnnotationSession
             "word" => false,
             _ => throw new ArgumentException("Strategy must be 'unihan' or 'word'.", nameof(optionsJson))
         };
+        if (!useUnihan)
+        {
+            if (readingId is not ("kJapanese" or "kMandarin" or "kCantonese" or "kHangul" or "kVietnamese" or "kZhuang" or "ar"))
+                throw new ArgumentException("Alternate reading fields require the Unihan strategy.", nameof(optionsJson));
+            if (selected is not null && !languageTag.Equals(selected.Language.Value, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Word dictionary language must match the reading system.", nameof(optionsJson));
+            if (selected is null && !languageTag.Equals("ar", StringComparison.OrdinalIgnoreCase)
+                && !languageTag.Equals("ar-Arab", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Arabic word dictionaries require language 'ar' or 'ar-Arab'.", nameof(optionsJson));
+            language = new LanguageCode(languageTag);
+        }
         var unihan = useUnihan ? Volatile.Read(ref _unihan) : null;
         if (useUnihan && (unihan is null || !unihan.Option.Id.Equals(readingId, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("Load the selected Unihan dictionary before annotating.");

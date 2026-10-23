@@ -93,6 +93,17 @@ public sealed class UnihanBrowserReadingTests
     }
 
     [Fact]
+    public async Task WordStrategy_RejectsAlternateFieldsAndPreservesArabicLanguageTags()
+    {
+        var session = new AnnotationSession();
+        await session.LoadDictionaryChunk(Encoding.UTF8.GetBytes("ar-Arab\tكتب\tكَتَبَ\n"));
+        using var document = JsonDocument.Parse(await session.AnnotateToJson("كتب", """{"language":"ar-Arab"}"""));
+        Assert.Equal("كَتَبَ", document.RootElement.GetProperty("children")[0].GetProperty("pronunciation").GetString());
+        await Assert.ThrowsAsync<ArgumentException>(() => session.AnnotateToHtml(
+            "食べる", """{"language":"ja-JP","readingSystem":"kJapaneseOn","strategy":"word"}"""));
+    }
+
+    [Fact]
     public async Task UnihanReadingHtml_IsEncoded()
     {
         var session = new AnnotationSession();

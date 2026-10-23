@@ -78,6 +78,7 @@ for (const runtime of [{ path: './', name: '.NET' }, { path: './netwasm/', name:
     });
 
     test(`${runtime.name}: all modern Unihan fields and ambiguity toggle`, async ({ page }) => {
+        test.setTimeout(240_000);
         await ready(page, runtime.path);
         for (const [language, expected] of [
             ['zh-CN', 'de'], ['zh-HK', 'dik1'], ['ja-JP', 'テキ'],
@@ -99,6 +100,10 @@ for (const runtime of [{ path: './', name: '.NET' }, { path: './netwasm/', name:
         const ast = await jsonOutput(page, 'kHanyuPinyin', '的');
         expect(ast.children[0].type).toBe('unresolved');
         expect(ast.children[0].readingCandidates).toEqual(['dì', 'dí', 'de']);
+        await page.locator('#strategy').selectOption('word');
+        await expect(page.locator('#language')).toHaveValue('zh-CN');
+        await page.locator('#language').selectOption('kJapaneseOn');
+        await expect(page.locator('#strategy')).toHaveValue('unihan');
     });
 }
 

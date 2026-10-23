@@ -65,7 +65,10 @@ Options are a JSON object:
 - `language`: legacy case-insensitive mappings `ja-JP` → `kJapanese` (API default),
   `zh-CN` → `kMandarin`, `zh-HK` → `kCantonese`, `ko` → `kHangul`,
   `vi` → `kVietnamese`, `za` → `kZhuang`, and `ar`/`ar-Arab` → Arabic.
-  An explicit `readingSystem` selects the reading and associated language instead.
+  With Unihan, an explicit `readingSystem` selects the reading and associated language instead.
+  Word mode requires the matching language and its default reading system; alternate
+  Unihan fields cannot relabel word-dictionary readings. Switching to word mode in the
+  demo selects that language's default system automatically.
 - `pickFirstReading`: boolean, default `false` in the API and `true` in the demo.
   Selecting the first candidate is a heuristic, **not contextual disambiguation**.
   Disable it to preserve ambiguous candidates as unresolved readings.
