@@ -1,5 +1,6 @@
+using System.Buffers;
+using System.Text;
 using System.Text.Json;
-using Unihan.Models;
 
 namespace PhoneticAnnotator.Core;
 
@@ -28,53 +29,71 @@ public sealed class JsonAstVisitor : IGlossAstVisitor
     /// <inheritdoc />
     public string GetResult() => _result;
 
-    private void SetResult(GlossAstNode node) =>
-        _result = JsonSerializer.Serialize(CreateJsonModel(node));
-
-    private static object CreateJsonModel(GlossAstNode node) => node switch
+    private void SetResult(GlossAstNode node)
     {
-        DocumentNode document => new
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
         {
-            type = "document",
-            children = document.Children.Select(CreateJsonModel).ToArray()
-        },
-        TextNode text => new
-        {
-            type = "text",
-            value = text.Value
-        },
-        RubyNode ruby => new
-        {
-            type = "ruby",
-            baseText = ruby.BaseText,
-            glossText = ruby.GlossText,
-            language = ruby.Language.Value,
-            readingSystem = CreateReadingSystemModel(ruby.ReadingSystem)
-        },
-        UnresolvedGlossNode unresolved => new
-        {
-            type = "unresolved",
-            baseText = unresolved.BaseText,
-            readingCandidates = unresolved.ReadingCandidates,
-            language = unresolved.Language.Value,
-            readingSystem = CreateReadingSystemModel(unresolved.ReadingSystem)
-        },
-        PronunciationNode pronunciation => new
-        {
-            type = "pronunciation",
-            baseText = pronunciation.BaseText,
-            pronunciation = pronunciation.Pronunciation,
-            language = pronunciation.Language.Value,
-            readingSystem = CreateReadingSystemModel(pronunciation.ReadingSystem)
-        },
-        _ => throw new ArgumentOutOfRangeException(nameof(node), node.GetType(), "Unsupported AST node type.")
-    };
+            WriteNode(writer, node);
+        }
+        _result = Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
 
-    private static object CreateReadingSystemModel(ReadingSystem readingSystem) => new
+    private static void WriteNode(Utf8JsonWriter writer, GlossAstNode node)
     {
-        tag = readingSystem.Tag,
-        name = readingSystem.Name,
-        sourceField = readingSystem.SourceField.ToString(),
-        annotationKind = readingSystem.AnnotationKind.ToString()
-    };
+        writer.WriteStartObject();
+        switch (node)
+        {
+            case DocumentNode document:
+                writer.WriteString("type", "document");
+                writer.WriteStartArray("children");
+                foreach (var child in document.Children)
+                {
+                    WriteNode(writer, child);
+                }
+                writer.WriteEndArray();
+                break;
+            case TextNode text:
+                writer.WriteString("type", "text");
+                writer.WriteString("value", text.Value);
+                break;
+            case RubyNode ruby:
+                writer.WriteString("type", "ruby");
+                writer.WriteString("baseText", ruby.BaseText);
+                writer.WriteString("glossText", ruby.GlossText);
+                WriteMetadata(writer, ruby.Language, ruby.ReadingSystem);
+                break;
+            case UnresolvedGlossNode unresolved:
+                writer.WriteString("type", "unresolved");
+                writer.WriteString("baseText", unresolved.BaseText);
+                writer.WriteStartArray("readingCandidates");
+                foreach (var candidate in unresolved.ReadingCandidates)
+                {
+                    writer.WriteStringValue(candidate);
+                }
+                writer.WriteEndArray();
+                WriteMetadata(writer, unresolved.Language, unresolved.ReadingSystem);
+                break;
+            case PronunciationNode pronunciation:
+                writer.WriteString("type", "pronunciation");
+                writer.WriteString("baseText", pronunciation.BaseText);
+                writer.WriteString("pronunciation", pronunciation.Pronunciation);
+                WriteMetadata(writer, pronunciation.Language, pronunciation.ReadingSystem);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(node), node.GetType(), "Unsupported AST node type.");
+        }
+        writer.WriteEndObject();
+    }
+
+    private static void WriteMetadata(Utf8JsonWriter writer, LanguageCode language, ReadingSystem readingSystem)
+    {
+        writer.WriteString("language", language.Value);
+        writer.WriteStartObject("readingSystem");
+        writer.WriteString("tag", readingSystem.Tag);
+        writer.WriteString("name", readingSystem.Name);
+        writer.WriteString("sourceField", readingSystem.SourceField.ToString());
+        writer.WriteString("annotationKind", readingSystem.AnnotationKind.ToString());
+        writer.WriteEndObject();
+    }
 }

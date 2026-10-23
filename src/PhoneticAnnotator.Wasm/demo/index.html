@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Phonetic Annotator · Native WASM</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; line-height: 1.6; }
+    body { max-width: 60rem; margin: auto; padding: clamp(1rem, 4vw, 3rem); }
+    h1 { line-height: 1.2; }
+    fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 1rem 0; }
+    label { display: block; }
+    textarea { box-sizing: border-box; width: 100%; min-height: 9rem; resize: vertical; font: inherit; padding: 1rem; }
+    select, input, button { font: inherit; max-width: 100%; }
+    #preview { min-height: 6rem; padding: 1rem; border: 1px solid #888; border-radius: .5rem; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 1.5rem; }
+    #preview pre { margin: 0; font-size: 1rem; white-space: pre-wrap; }
+    rt { font-size: .6em; }
+    .reading { margin-inline-start: .5em; font-size: .8em; }
+    #latency { padding: .2rem .6rem; border: 1px solid #888; border-radius: 1rem; font-variant-numeric: tabular-nums; font-size: .9rem; }
+    #status { min-height: 1.6em; }
+  </style>
+</head>
+<body>
+  <h1>Phonetic Annotator <small>Native WASM</small></h1>
+  <p>Local, browser-only .NET 10 annotations. No Blazor, server, or text uploads.</p>
+  <p id="status" role="status">Starting .NET…</p>
+  <fieldset id="controls" disabled>
+    <legend>Annotation settings</legend>
+    <label for="text">Text</label>
+    <textarea id="text" spellcheck="false">食べる</textarea>
+    <div class="controls">
+      <label>Language
+        <select id="language">
+          <option value="ja-JP">Japanese</option>
+          <option value="zh-CN">Mandarin</option>
+          <option value="zh-HK">Cantonese</option>
+          <option value="ar">Arabic</option>
+        </select>
+      </label>
+      <label>Output
+        <select id="format">
+          <option value="html">HTML ruby</option>
+          <option value="json">JSON AST</option>
+        </select>
+      </label>
+      <label><input id="alignment" type="checkbox" checked> Align Japanese okurigana</label>
+      <label>Load dictionary chunks (UTF-8 TSV)
+        <input id="dictionary" type="file" accept=".tsv,text/tab-separated-values" multiple>
+      </label>
+    </div>
+  </fieldset>
+  <h2>Preview <output id="latency" aria-label="Annotation latency">— ms</output></h2>
+  <div id="preview" aria-live="polite"></div>
+  <p>The bundled dictionary contains examples only: 食べる, 你好, 重庆, كتب.
+    Unknown text is preserved; ambiguous readings remain unresolved in JSON.</p>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
