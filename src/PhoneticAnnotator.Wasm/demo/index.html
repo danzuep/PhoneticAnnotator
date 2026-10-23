@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Phonetic Annotator · Native WASM</title>
+  <title>Phonetic Annotator · WebAssembly</title>
   <style>
     :root { font-family: system-ui, sans-serif; line-height: 1.6; }
     body { max-width: 60rem; margin: auto; padding: clamp(1rem, 4vw, 3rem); }
@@ -23,7 +23,8 @@
   </style>
 </head>
 <body>
-  <h1>Phonetic Annotator <small>Native WASM</small></h1>
+  <h1>Phonetic Annotator <small id="runtime">WebAssembly</small></h1>
+  <nav aria-label="Runtime"><a href="./">.NET WASM demo</a> · <a href="./netwasm/">NetWasm demo</a></nav>
   <p>Local, browser-only .NET 10 annotations. No Blazor, server, or text uploads.</p>
   <p id="status" role="status">Starting .NET…</p>
   <fieldset id="controls" disabled>
@@ -55,6 +56,6 @@
   <div id="preview" aria-live="polite"></div>
   <p>The bundled dictionary contains examples only: 食べる, 你好, 重庆, كتب.
     Unknown text is preserved; ambiguous readings remain unresolved in JSON.</p>
-  <script type="module" src="./main.js"></script>
+  <script type="module" src="app.mjs"></script>
 </body>
 </html>

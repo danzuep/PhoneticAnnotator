@@ -27,7 +27,7 @@ parent `publish` directory. All module/dictionary URLs are relative, including o
 
 ### JavaScript API and dictionary chunks
 
-`demo/main.js` creates the runtime, registers the `phonetic-demo.onReady` import,
+`demo/app.mjs` creates the runtime, registers the `phonetic-demo.onReady` import,
 gets exports with `getAssemblyExports('PhoneticAnnotator.Wasm')`, and awaits
 `runMain(getConfig().mainAssemblyName, [])`. The async C# entry point initializes
 the in-memory annotation session before invoking `onReady`. The methods on
@@ -66,19 +66,93 @@ entries, options, and returned strings still allocate. Shared dictionaries are
 immutable, and each call owns its visitors/options/AST. The default runtime is
 single-threaded and does not require cross-origin isolation headers.
 
-### Manually deploy to GitHub Pages
+### Alternative NetWasm runtime and desktop targets
+
+The same word-lexicon pipeline also targets **`netwasm0.1`**, using
+[NetWasm](https://github.com/zion-sati/NetWasm) SDK **0.10.2** and its
+**0.10.0** JSON/LINQ library ports. This is a separate compiler/runtime, not
+Microsoft's `browser-wasm` target. `PhoneticAnnotator.Core` multi-targets
+`net10.0;netwasm0.1`; `PhoneticAnnotator.NetWasm` publishes the alternate
+`JsModule` host. Both SPAs load `<script type="module" src="app.mjs"></script>`
+and share the UI, dictionary parsing, async token stream, alignment, AST, and visitors.
+
+```sh
+dotnet publish src/PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj -c Release -o artifacts/netwasm
+python3 -m http.server 8001 --directory artifacts/netwasm
+```
+
+Open <http://localhost:8001>. The module opens the generated
+`browser/PhoneticAnnotator.NetWasm.mjs` without `dotnet.js`. NetWasm requires
+HTTPS or localhost for startup integrity checks. It does not need `wasm-tools`;
+the SDK restores its own pinned host tools. Use .NET SDK 10.0.303 or later.
+
+Compatibility boundaries:
+
+- NetWasm's Core target includes the shared `UnihanField` enum but not the
+  desktop Unihan archive/lookup loaders or character-reading provider. The full
+  `net10.0` API and existing Microsoft WASM runtime are unchanged. Both demos use
+  complete UTF-8 word-lexicon TSV chunks, not Unihan ZIPs.
+- NetWasm 0.10.2 cannot export `Task<string>`. Its facade exports `Task` and
+  delivers each string through an explicit `[JSImport]` callback keyed by request
+  ID. `app.mjs` exposes the same promise-returning UI API without blocking waits.
+  Dictionary calls are queued in invocation order; rejected chunks do not poison
+  later loads. Publication has no suspension point on NetWasm's single reactor.
+- NetWasm does not expose `HtmlEncoder`. Its target-specific visitor encoding
+  escapes `&`, `<`, `>`, both quote characters, and preserves Unicode; desktop
+  continues using `HtmlEncoder.Default`. Both source and dictionary text are encoded.
+- NetWasm has no managed threading/shared heap. Desktop retains its semaphore and
+  volatile publication; NetWasm uses its single-reactor execution model.
+- NetWasm is pre-1.0 and has separate compiler/tooling licensing; review the
+  upstream license before commercial adoption. Strings/arrays still copy at its
+  JavaScript boundary; no zero-allocation or universal near-native-speed claim
+  is made.
+
+Desktop Native AOT uses the existing CLI (replace the RID for another host):
+
+```sh
+dotnet publish src/PhoneticAnnotator.Cli/PhoneticAnnotator.Cli.csproj -c Release -r linux-x64 -p:PublishAot=true -o artifacts/linux-x64
+artifacts/linux-x64/PhoneticAnnotator.Cli --lexicon data/examples/word-readings.tsv --language ja-JP --text 食べる --format html
+```
+
+### CI and GitHub Pages
 
 1. Merge the workflow onto the default branch and enable **Settings → Pages →
    Build and deployment → Source: GitHub Actions** (requires repository admin access).
-2. Open **Actions → Deploy native WASM demo to Pages → Run workflow**, select the
-   branch to publish, and run it. This workflow runs only on manual dispatch.
+2. Push to `main`, or open **Actions → Desktop and WebAssembly → Run workflow**
+   and select `main`. Pull requests and other branch pushes build/test but never
+   deploy Pages.
 3. Approve the `github-pages` environment deployment if your repository requires it.
    The deploy job exposes the resulting Pages URL, normally
    `https://<owner>.github.io/PhoneticAnnotator/`.
 
-The workflow tests the library, publishes the AOT bundle, and uploads/deploys that
-static bundle using Pages' scoped deployment permissions. Subsequent dispatches
-replace the site; there is no server component.
+The workflow tests desktop Native AOT on Linux/Windows x64 and ARM64 and macOS
+ARM64/x64. It tests **both** browser runtimes in Chromium, Firefox, and WebKit,
+including AST parity, alignment, dictionary uploads/recovery, and HTML escaping.
+The combined site serves Microsoft WASM at the root and NetWasm at `/netwasm/`,
+with runtime links in the UI. Pages deployment waits for the native and browser
+matrices, skips stale `main` revisions, and runs Chromium against both live pages.
+Only the deployment job receives Pages write/OIDC permissions.
+
+To reproduce browser checks locally, publish both runtimes, assemble the same
+project-path site used by CI, then run:
+
+```sh
+dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0
+dotnet publish src/PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj -c Release -o artifacts/netwasm
+mkdir -p artifacts/site/PhoneticAnnotator/netwasm
+cp -a src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot/. artifacts/site/PhoneticAnnotator/
+cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/site/PhoneticAnnotator/netwasm/
+cd tools/browser-tests
+npm ci
+npx playwright install --with-deps
+npm test
+```
+
+The test runner starts a local Python HTTP server under `/PhoneticAnnotator/`.
+To test an already hosted combined site instead, set `PHONETIC_BASE_URL` to its
+HTTPS URL **ending in `/`**; it then skips the local server. Test traces/reports
+are written under `artifacts/`. No audio, desktop GUI, game fixtures, or unrelated
+Doom checks from the example workflow are required.
 
 ## Typical Data Flow
 
