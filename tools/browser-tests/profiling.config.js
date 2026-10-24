@@ -14,7 +14,7 @@ export default defineConfig({
     projects: [
         { name: 'chromium', use: { ...devices['Desktop Chrome'], channel: 'chromium-headless-shell' } },
         {
-            name: 'mobile-chromium-emulated',
+            name: 'mobile-chromium',
             use: { ...devices['Pixel 7'], channel: 'chromium-headless-shell' }
         },
         // Optional installed real WebKit engine, not Chromium with a Safari user-agent.

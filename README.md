@@ -313,9 +313,11 @@ existing local static-site server is used. Profiling is a separate Playwright
 suite, not part of ordinary regression tests. JSON reports are attached under
 `artifacts/profiling-results`, with an HTML report under
 `artifacts/profiling-report`. The Pages workflow can run it via the optional
-`profile` dispatch input.
+`profile` dispatch input. Set `PHONETIC_PROFILE_WEBKIT=1` to enable the optional
+`--project=webkit` run after installing the existing Playwright WebKit browser.
 
-Mobile Chromium/WebKit profiles are **emulation**, not physical phone benchmarks.
+Mobile Chromium profiles are **emulation**, not physical phone benchmarks;
+automated WebKit runs likewise do not measure a physical iPhone.
 For physical devices, serve the identical publication over HTTPS, open
 `profile.html` on each target, and export results there. Ordinary HTTP LAN origins
 may lack Cache Storage. This environment cannot establish physical-device results;
