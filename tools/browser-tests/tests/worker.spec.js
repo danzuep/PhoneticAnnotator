@@ -27,7 +27,9 @@ test('.NET module worker: ready, bytes, ordered updates, correlated errors and r
                 call('LoadUnihanDictionary', [encode('U+4F60\tkMandarin\tnǐ\n'), 'kMandarin']),
                 call('AnnotateToHtml', ['你', JSON.stringify({ language: 'zh-CN', strategy: 'unihan' })])
             ]);
-            return { events, responses };
+            const htmlReading = new DOMParser().parseFromString(responses[6].result, 'text/html')
+                .querySelector('rt')?.textContent;
+            return { events, responses, htmlReading };
         } finally {
             worker.terminate();
         }
@@ -37,7 +39,7 @@ test('.NET module worker: ready, bytes, ordered updates, correlated errors and r
     expect(result.responses.map(response => response.ok)).toEqual([true, true, false, true, false, true, true]);
     expect(JSON.parse(result.responses[3].result).children[0].glossText).toBe('nǐ hǎo');
     expect(result.responses[4].error.message).toContain('Unknown worker method');
-    expect(result.responses[6].result).toContain('nǐ');
+    expect(result.htmlReading).toBe('nǐ');
 });
 
 test('.NET module worker: configurable runtime URL and sticky startup errors', async ({ page }) => {
