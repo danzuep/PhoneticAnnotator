@@ -5,6 +5,11 @@ on:
     branches: [main, '**[dD][eE][vV][oO][pP][sS]**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      profile:
+        description: Run desktop and mobile-emulated WASM profiling
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -76,6 +81,20 @@ jobs:
       - name: Exercise both published runtimes under a project path
         working-directory: tools/browser-tests
         run: npm test -- --project=chromium
+      - name: Profile published WASM on desktop and mobile-emulated Chromium
+        if: github.event_name == 'workflow_dispatch' && inputs.profile
+        working-directory: tools/browser-tests
+        env:
+          PHONETIC_PROFILE_LABEL: Release AOT / CI ${{ github.sha }}
+        run: npm run profile -- --project=chromium --project=mobile-chromium
+      - name: Upload profiling results
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.profile
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: phoneticannotator-wasm-profiles
+          path: |
+            artifacts/profiling-results/
+            artifacts/profiling-report/
       - uses: actions/upload-pages-artifact@v3.0.1
         if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || contains(github.ref_name, 'devops'))) || github.event_name == 'workflow_dispatch'
         with:

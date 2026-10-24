@@ -4,7 +4,8 @@
   "private": true,
   "description": "Published PhoneticAnnotator runtime parity and browser regression checks",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "profile": "playwright test --config=profiling.config.js"
   },
   "keywords": [],
   "author": "",

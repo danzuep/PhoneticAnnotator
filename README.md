@@ -83,7 +83,25 @@ and `kFanqie`, non-reading `kDefinition`, and absent `kBopomofo` are excluded.
 During startup, both demos preload the example word dictionary and approximately **8.5 MB**
 `Unihan_Readings.txt` file concurrently with runtime initialization, and cache their bytes in browser memory. Only the selected
 field is parsed; switching fields reuses the cached download and replaces the
-selected dictionary. The cache is not persistent across page reloads.
+selected dictionary. Bundled dictionary responses are also persisted in an
+application-scoped browser Cache Storage cache across page reloads.
+
+### Persistent dictionary downloads
+
+Both demos use `dictionary-cache.js` for bundled word and Unihan downloads.
+Online loads revalidate cached responses with ETag/Last-Modified when available;
+servers without validators return a fresh download. Changed responses replace the
+persisted copy. Network failures can reuse a previously cached dictionary, with
+the offline source shown in diagnostics; HTTP errors are not silently hidden by
+stale data. This caches downloaded UTF-8 bytes, **not** the managed dictionary
+index, so a new runtime still parses/indexes the bytes.
+
+Cache Storage is best-effort: private browsing, insecure origins, quota limits,
+or browser eviction may disable persistence without preventing online annotation.
+Use HTTPS or localhost for reliable access. The demo's clear-cache control removes
+only this application's dictionary entries, not unrelated origin caches. Clearing
+download storage does not unload the current in-memory dictionary. Uploaded
+dictionaries and annotation text are never persisted by this feature.
 
 The word strategy remains available with the small example
 `data/examples/word-readings.tsv` and additional TSV uploads through the file picker;
@@ -156,6 +174,56 @@ not message serialization costs.
 
 ### Synchronous processing and AST filters
 
+#### Fluent .NET API
+
+Use `AnnotationEngine` as the typed entry point instead of assembling low-level
+tokenizers, disambiguators, and visitors manually. Fluent methods and nested
+`Action<TBuilder>` callbacks configure the same immutable engine:
+
+```csharp
+using PhoneticAnnotator.Core;
+
+// Load once; streams remain caller-owned.
+var lexicon = await WordReadingLexicon.LoadAsync(dictionaryStream);
+var engine = AnnotationEngine.Create(builder => builder
+    .Reading("kJapanese") // Selects the catalog language and reading system.
+    .PickFirstReading()
+    .Dictionaries(dictionaries => dictionaries.Words(lexicon))
+    .Filters(filters => filters
+        .KnownWords(["猫"])
+        .Script(JapaneseScript.Romaji)));
+
+var document = engine.Annotate("猫と食べる");
+var html = engine.ToHtml(document);
+var json = engine.ToJson(document); // Render the same AST without tokenizing again.
+```
+
+Alternatively, instantiate `AnnotationEngineBuilder`, chain configuration calls,
+and call `Build()`. Built engines snapshot dictionary/filter collections; later
+builder changes do not modify earlier engines. Reuse an engine for repeated calls.
+`Language(...)` plus `Reading(ReadingSystem)` configures a typed reading explicitly;
+`Dictionaries(d => d.Unihan(dictionary))` selects scalar Unihan matching instead of
+word dictionaries. Mixing scalar and word sources is rejected rather than silently
+ignoring one. Dictionary loading stays asynchronous and explicit; annotation is
+synchronous over borrowed input and returns an owned document.
+
+Japanese kana uses automatic okurigana alignment; `WithoutAlignment()` keeps
+whole-token readings and `Alignment(customAligner)` selects a language-compatible
+aligner. Filters execute in registration order: `Jlpt(...)`, `KnownWords(...)`,
+`KnownKanji(...)`, `Script(...)`, or `Add(customFilter)`. Configuration validates
+language/reading and aligner compatibility at build time. An empty dictionary
+configuration preserves unknown text rather than inventing readings.
+
+`ToHtml`, `ToJson`, and `ToAnki` create a fresh visitor for each rendering.
+`Render(document, () => new CustomVisitor())` supports custom output while keeping
+tokenization strategies independent of visitors. Custom filters and aligners are
+shared by reference and must be immutable/thread-safe when the engine is shared;
+visitor factories must return a new visitor each time. Custom filters may replace
+the root; non-document results are wrapped in a document, and null results fail.
+Both annotation and filter execution honor cancellation between processing steps.
+The WASM JSON boundary uses the same typed engine internally; JavaScript does not
+need to instantiate C# builders.
+
 `TokenEnumerator` borrows a `ReadOnlySpan<char>` and immutable lexicon snapshots.
 Its value tokens avoid async state machines and per-token heap records.
 `WordLexiconTokenizerStrategy.Tokenize` exposes this path;
@@ -207,6 +275,51 @@ and conservative ambiguous-run fallback over short and long inputs.
 Use `--job Dry` only for smoke checks, not performance conclusions. Native .NET
 measurements do not predict WASM latency; profile the published worker on target
 browsers and devices before claiming browser speedups.
+
+#### Browser and device profiling
+
+Open `profile.html` beside the published native .NET WASM demo to run measurements
+on the actual browser/device. Use the **same Release AOT build** when comparing
+devices and enter a build/device label. Keep the tab foregrounded, close unrelated
+workloads, and record power/thermal conditions separately. The page runs locally
+and downloads JSON results; it does not send results, source text, or dictionaries
+to a profiling service.
+
+The harness creates a fresh worker for each dictionary-cold and dictionary-warm
+pass, measuring runtime startup, dictionary loading/revalidation, and indexing
+separately. It measures sequential worker round trips for synthetic tweet,
+article, and chapter inputs in Japanese, Chinese, Korean, and Thai, including
+interop and JSON serialization. Word dictionaries and supported Unihan readings
+are exercised; missing word fixtures use explicitly labelled in-memory
+supplements. Warmups and correctness probes are excluded from median/p95
+latencies. Raw samples, throughput, dictionary provenance/fingerprints, and
+browser/device metadata accompany each report. Download/index timings are single
+observations, not statistical distributions.
+
+“Cold” clears only this application's persistent dictionary cache, **not** browser
+HTTP caches, compiled WASM caches, or OS caches. “Warm” means a subsequent load;
+the reported dictionary source is authoritative (a server without validators may
+still return a full response). No fixed performance thresholds are imposed.
+
+For repeatable automation against the assembled site:
+
+```sh
+npm --prefix tools/browser-tests ci
+npm --prefix tools/browser-tests run profile -- --project=chromium --project=mobile-chromium
+```
+
+Set `PHONETIC_BASE_URL` to profile an already-served publication; otherwise the
+existing local static-site server is used. Profiling is a separate Playwright
+suite, not part of ordinary regression tests. JSON reports are attached under
+`artifacts/profiling-results`, with an HTML report under
+`artifacts/profiling-report`. The Pages workflow can run it via the optional
+`profile` dispatch input.
+
+Mobile Chromium/WebKit profiles are **emulation**, not physical phone benchmarks.
+For physical devices, serve the identical publication over HTTPS, open
+`profile.html` on each target, and export results there. Ordinary HTTP LAN origins
+may lack Cache Storage. This environment cannot establish physical-device results;
+do not interpret emulated CI timing as a device-specific performance guarantee.
 
 Publishing a GitHub Release with a semantic-version tag (optionally prefixed `v`)
 builds and attaches the Core and Unihan `.nupkg` files, a complete AOT
