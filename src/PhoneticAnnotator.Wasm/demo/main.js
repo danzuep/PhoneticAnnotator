@@ -16,7 +16,6 @@ const dictionary = document.querySelector('#dictionary');
 const preview = document.querySelector('#preview');
 const latency = document.querySelector('#latency');
 const metadata = document.querySelector('#metadata');
-const characterMetadata = document.querySelector('#character-metadata');
 const diagnostics = document.querySelector('#diagnostics');
 const cacheStatus = document.querySelector('#dictionary-cache-status');
 const clearCache = document.querySelector('#clear-dictionary-cache');
@@ -112,6 +111,7 @@ function renderMetadata() {
         'zh-HK': ['kCantonese', 'kSMSZD2003Readings', 'kTang', 'kFanqie'],
         ko: ['kHangul', 'kKorean'], vi: ['kVietnamese'], za: ['kZhuang'], ar: []
     }[selectedLanguage()] ?? [];
+    const characterMetadata = document.querySelector('#character-metadata');
     characterMetadata.replaceChildren();
     for (const character of characters) {
         const heading = document.createElement('h3');
@@ -151,6 +151,9 @@ try {
     const isNetWasm = runtimeName === 'NetWasm';
     links[0].href = isNetWasm ? '../' : './';
     links[1].href = isNetWasm ? './' : './netwasm/';
+
+    document.querySelector('#profile-link').href = isNetWasm ? '../profile.html' : './profile.html';
+
     // Start network requests before runtime initialization, not after it.
     const [interop, wordBytes, characterBytes] = await Promise.all([
         measure('Runtime initialization', createInterop),
@@ -285,4 +288,5 @@ try {
     controls.disabled = true;
     status.textContent = `Startup failed: ${error.message}`;
 }
+
 }

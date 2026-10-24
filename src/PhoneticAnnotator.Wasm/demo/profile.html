@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>.NET WASM local profiling</title>
+  <style>
+    body { font: 1rem system-ui, sans-serif; max-width: 65rem; margin: auto; padding: 1rem; }
+    label { display: block; margin: .8rem 0; }
+    input { max-width: 100%; box-sizing: border-box; }
+    button { padding: .6rem; margin: .3rem; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <h1>.NET WASM local profiling</h1>
+  <p>This standalone page starts the module worker only when you run it. Serve the published
+    <code>wwwroot</code> over HTTPS on real devices (including LAN devices; never disable browser security).
+    Cache comparisons require secure-context storage; localhost HTTP also works for local testing.
+    Desktop/mobile browser emulation is not a physical-device measurement.</p>
+  <p>Each run clears this site's dictionary application cache, measures that pass, then measures a
+    warm application-cache pass. Both use fresh workers. Browser HTTP/runtime caches are <strong>not</strong>
+    cleared: “cold dictionary cache” does not mean cold network, browser, or runtime.
+    Network access is only to the bundled same-origin runtime and dictionaries; no results are uploaded.</p>
+  <p>Annotation timings are sequential worker round trips including messaging, .NET interop and managed
+    JSON serialization, not managed-only nanosecond timings. Warmups are excluded. Synthetic repeated
+    tweet/article/chapter workloads are not natural-language benchmarks. Korean/Thai use deterministic
+    in-memory TSV supplements when absent from the bundle; Unihan uses actual bundled readings.</p>
+  <form id="profile-form">
+    <fieldset id="profile-controls">
+      <legend>Bounded run settings</legend>
+      <label>Build/device label (user supplied, not detected)
+        <input id="build-label" maxlength="100" value="unspecified build / device">
+      </label>
+      <label>Measured iterations per workload (1–50)
+        <input id="iterations" type="number" min="1" max="50" step="1" value="5" required>
+      </label>
+      <label>Excluded warmups per workload (0–10)
+        <input id="warmups" type="number" min="0" max="10" step="1" value="2" required>
+      </label>
+      <label>Per-operation timeout, milliseconds (1000–300000)
+        <input id="timeout-ms" type="number" min="1000" max="300000" step="1" value="60000" required>
+      </label>
+      <button type="submit">Run profile (clears dictionary cache)</button>
+    </fieldset>
+  </form>
+  <p id="profile-status" role="status" aria-live="polite">Ready. No runtime has started.</p>
+  <p id="profile-error" role="alert"></p>
+  <button id="download" type="button" disabled>Download local JSON</button>
+  <p>The JSON contains timings, workload sizes, dictionary fingerprints, browser/device metadata and
+    your label, but no source text or dictionary contents. Review the label before sharing.</p>
+  <pre id="profile-summary" aria-label="Profile summary"></pre>
+  <script type="module" src="./profile.js"></script>
+</body>
+</html>

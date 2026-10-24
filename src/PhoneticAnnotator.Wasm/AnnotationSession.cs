@@ -5,17 +5,17 @@ namespace PhoneticAnnotator.Wasm;
 
 public sealed class AnnotationSession
 {
-    private static readonly ISpanPhoneticAligner JapaneseAligner = new SpanCharacterAligner();
     private static readonly ReadingSystem ThaiReadingSystem = new(
         "th", "Thai", Unihan.Models.UnihanField.Unknown);
     private WordReadingLexicon[] _lexicons = [];
     private UnihanReadingDictionary? _unihan;
+    private EngineCache? _engineCache;
 
     public Task<string> AnnotateToHtml(string text, string optionsJson) =>
-        AnnotateAsync(text, optionsJson, new HtmlRubyVisitor());
+        AnnotateAsync(text, optionsJson, static () => new HtmlRubyVisitor());
 
     public Task<string> AnnotateToJson(string text, string optionsJson) =>
-        AnnotateAsync(text, optionsJson, new JsonAstVisitor());
+        AnnotateAsync(text, optionsJson, static () => new JsonAstVisitor());
 
     public async Task LoadUnihanDictionary(byte[] dictionaryData, string readingId)
     {
@@ -48,11 +48,11 @@ public sealed class AnnotationSession
         }
     }
 
-    private Task<string> AnnotateAsync(string text, string optionsJson, IGlossAstVisitor visitor)
+    private Task<string> AnnotateAsync(string text, string optionsJson, Func<IGlossAstVisitor> visitorFactory)
     {
         try
         {
-            return Task.FromResult(Annotate(text, optionsJson, visitor));
+            return Task.FromResult(Annotate(text, optionsJson, visitorFactory));
         }
         catch (Exception exception)
         {
@@ -61,7 +61,7 @@ public sealed class AnnotationSession
         }
     }
 
-    private string Annotate(string text, string optionsJson, IGlossAstVisitor visitor)
+    private string Annotate(string text, string optionsJson, Func<IGlossAstVisitor> visitorFactory)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(optionsJson);
@@ -117,16 +117,51 @@ public sealed class AnnotationSession
             && pickFirstOption.GetBoolean();
         var alignOkurigana = !options.RootElement.TryGetProperty("alignOkurigana", out var alignmentOption)
             || alignmentOption.GetBoolean();
-        ISpanPhoneticAligner? aligner = alignOkurigana && readingSystem == ReadingSystem.JapaneseKana
-            ? JapaneseAligner
-            : null;
         var snapshot = Volatile.Read(ref _lexicons);
-        var document = GlossDocumentAssembler.Assemble(
-            new TokenEnumerator(text.AsSpan(), snapshot, language, readingSystem, unihan),
-            pickFirst,
-            aligner);
-        document.Accept(visitor);
-        return visitor.GetResult();
+        var cached = Volatile.Read(ref _engineCache);
+        AnnotationEngine engine;
+        if (cached is not null
+            && ReferenceEquals(cached.Lexicons, snapshot)
+            && ReferenceEquals(cached.Unihan, unihan)
+            && cached.AlignOkurigana == alignOkurigana
+            && cached.Engine.PickFirstReading == pickFirst
+            && cached.Engine.ReadingSystem == readingSystem
+            && string.Equals(cached.Engine.Language.Value, language.Value, StringComparison.OrdinalIgnoreCase))
+        {
+            engine = cached.Engine;
+        }
+        else
+        {
+            engine = BuildEngine(language, readingSystem, pickFirst, alignOkurigana, snapshot, unihan);
+            // A single-entry cache bounds retained dictionary snapshots. Racing callers may
+            // replace the cache, but each request keeps its own consistent immutable engine.
+            Volatile.Write(ref _engineCache, new EngineCache(snapshot, unihan, alignOkurigana, engine));
+        }
+        return engine.Render(engine.Annotate(text.AsSpan()), visitorFactory);
     }
 
+    private static AnnotationEngine BuildEngine(
+        LanguageCode language,
+        ReadingSystem readingSystem,
+        bool pickFirst,
+        bool alignOkurigana,
+        WordReadingLexicon[] lexicons,
+        UnihanReadingDictionary? unihan)
+    {
+        var builder = new AnnotationEngineBuilder();
+        builder.Language(language).Reading(readingSystem).PickFirstReading(pickFirst)
+            .Dictionaries(dictionaries =>
+            {
+                if (unihan is not null) dictionaries.Unihan(unihan);
+                else dictionaries.Words(lexicons);
+            });
+        if (!alignOkurigana) builder.WithoutAlignment();
+        return builder.Build();
+    }
+
+    private sealed record EngineCache(
+        WordReadingLexicon[] Lexicons,
+        UnihanReadingDictionary? Unihan,
+        bool AlignOkurigana,
+        AnnotationEngine Engine);
 }
