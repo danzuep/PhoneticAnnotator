@@ -31,7 +31,7 @@ jobs:
       - name: Verify generated SDK and worker protocol
         run: |
           node scripts/generate-types.mjs --check
-          node --test scripts/generate-types.test.mjs tools/browser-tests/worker.test.mjs
+          node --test scripts/generate-types.test.mjs tools/browser-tests/worker.test.mjs tools/browser-tests/dictionary-cache.test.mjs
       - name: Run managed tests
         run: dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
       - name: Publish AOT browser bundle
@@ -41,7 +41,7 @@ jobs:
           dotnet publish src/PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj -c Release -o artifacts/netwasm
           mkdir -p artifacts/site/PhoneticAnnotator/netwasm
           cp -a src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot/. artifacts/site/PhoneticAnnotator/
-          cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/word-readings.tsv artifacts/netwasm/Unihan_Readings.txt artifacts/netwasm/THIRD-PARTY-NOTICES.txt artifacts/site/PhoneticAnnotator/netwasm/
+          cp -a artifacts/netwasm/browser artifacts/netwasm/index.html artifacts/netwasm/app.mjs artifacts/netwasm/main.js artifacts/netwasm/dictionary-cache.js artifacts/netwasm/word-readings.tsv artifacts/netwasm/Unihan_Readings.txt artifacts/netwasm/THIRD-PARTY-NOTICES.txt artifacts/site/PhoneticAnnotator/netwasm/
       - name: Upload shared browser site
         uses: actions/upload-artifact@v4.6.2
         with:

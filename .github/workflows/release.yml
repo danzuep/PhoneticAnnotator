@@ -36,7 +36,7 @@ jobs:
         run: |
           dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
           node scripts/generate-types.mjs --check
-          node --test scripts/generate-types.test.mjs tools/browser-tests/worker.test.mjs
+          node --test scripts/generate-types.test.mjs tools/browser-tests/worker.test.mjs tools/browser-tests/dictionary-cache.test.mjs
       - name: Pack managed libraries
         run: |
           dotnet pack src/Unihan/Unihan.csproj -c Release -p:PackageVersion="$PACKAGE_VERSION" -o artifacts/release
