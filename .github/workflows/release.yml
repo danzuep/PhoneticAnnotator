@@ -33,11 +33,26 @@ jobs:
       run:
         shell: bash
     steps:
-      # Build the actual merge commit, not a newer main commit queued behind it.
+      # Start from a trusted base-repository snapshot, never a PR head.
       - uses: actions/checkout@v4.2.2
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
+
+      # Verify the merged commit is on main before executing any of its code.
+      # Pinning it also prevents queued runs from building a newer merge.
+      - name: Select verified merge commit
+        if: github.event_name == 'pull_request_target'
+        env:
+          MERGE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$MERGE_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Expected a merged commit SHA"
+            exit 1
+          fi
+          git merge-base --is-ancestor "$MERGE_COMMIT" refs/remotes/origin/main
+          git checkout --detach "$MERGE_COMMIT"
 
       # Ignore non-stable/non-SemVer tags and compare versions numerically.
       # PR titles are untrusted data: pass them via the environment, not shell source.
