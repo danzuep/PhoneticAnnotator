@@ -202,7 +202,8 @@ dotnet run --project benchmarks/PhoneticAnnotator.Benchmarks -c Release -- --fil
 assembly for Japanese, Chinese, Korean, and Thai using tweet-, article-, and
 chapter-sized synthetic inputs. `MemoryDiagnoser` reports allocated bytes/op
 alongside timing; setup/dictionary indexing are excluded. `AlignmentBenchmarks`
-exercises short and long alignment, including conservative ambiguous-run fallback.
+separately exercises successful unique-kana alignment, whole-compound alignment,
+and conservative ambiguous-run fallback over short and long inputs.
 Use `--job Dry` only for smoke checks, not performance conclusions. Native .NET
 measurements do not predict WASM latency; profile the published worker on target
 browsers and devices before claiming browser speedups.
