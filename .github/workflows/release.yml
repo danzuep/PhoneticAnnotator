@@ -1,7 +1,9 @@
 name: Release packages and browser SDK
 
 on:
-  pull_request:
+  # Base-repository context permits releases for merged fork PRs too. The job
+  # below only checks out trusted, already-merged code, never an open PR head.
+  pull_request_target:
     branches: [main]
     types: [closed]
   workflow_dispatch:
@@ -23,7 +25,7 @@ concurrency:
 jobs:
   release:
     if: >-
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true) ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -55,7 +57,7 @@ jobs:
             fi
           done < <(git tag -l "v*" --sort=-version:refname)
 
-          if [[ "$EVENT_NAME" == pull_request ]]; then
+          if [[ "$EVENT_NAME" == pull_request_target ]]; then
             # Re-running an already tagged merge must not allocate another version.
             existing_tag=''
             while IFS= read -r candidate; do
