@@ -26,7 +26,8 @@
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <Target Name="GenerateInteropTypes" BeforeTargets="PrepareForBuild;PrepareForPublish">
+  <Target Name="GenerateInteropTypes" BeforeTargets="PrepareForBuild;PrepareForPublish"
+          Condition="'$(SkipInteropTypeGeneration)' != 'true'">
     <Exec Command="node &quot;$(MSBuildProjectDirectory)/../../scripts/generate-types.mjs&quot;" />
   </Target>
 

@@ -323,11 +323,22 @@ For physical devices, serve the identical publication over HTTPS, open
 may lack Cache Storage. This environment cannot establish physical-device results;
 do not interpret emulated CI timing as a device-specific performance guarantee.
 
-Publishing a GitHub Release with a semantic-version tag (optionally prefixed `v`)
-builds and attaches the Core and Unihan `.nupkg` files, a complete AOT
-`PhoneticAnnotator-browser.zip`, and standalone declarations/worker assets.
-NuGet registry publication is not automatic; consumers of standalone assets also
-need the matching browser runtime bundle.
+Merging a pull request into `main` runs `.github/workflows/release.yml`: the latest
+stable `vMAJOR.MINOR.PATCH` tag is bumped according to the PR title
+(`major:` before `minor:`, case-insensitive; otherwise patch). With no tag, the
+baseline is `v0.1.0`, so the first ordinary merge releases `v0.1.1`.
+The .NET 10 workflow tests and packages `Zue.PhoneticAnnotator.Core` and
+`Zue.Unihan`, creates the tag and a GitHub Release with generated notes, and
+attaches `.nupkg`/`.snupkg` files, a complete AOT `PhoneticAnnotator-browser.zip`,
+and standalone declarations/worker assets. Release builds use committed interop
+declarations without Node.js; ordinary builds still regenerate them.
+
+Run the workflow manually on `main` to rebuild the latest stable tag without
+bumping it (or release `v0.1.0` from the selected main commit if no tag exists).
+Existing tags are never moved. To publish packages to NuGet.org, select
+`publish_nuget` and configure the repository secret `NUGET_API_KEY`; duplicate
+packages are skipped. Consumers of standalone assets also need the matching
+browser runtime bundle.
 
 ### Alternative NetWasm browser runtime
 
@@ -377,9 +388,9 @@ Compatibility boundaries:
 2. Push to `main` or a branch containing `DevOps` (case-insensitive, including
    `copilot/devops-update-loading-perf`), or open **Actions → Browser WebAssembly and Pages → Run workflow**
    and select the branch to deploy. Manual dispatch can deploy any branch, subject
-   to the `github-pages` environment's deployment rules. Pull requests build/test
-   without deploying Pages. Other branch pushes do not start a workflow;
-   open a pull request or dispatch the workflow manually.
+   to the `github-pages` environment's deployment rules. Pull requests do not
+   trigger this workflow. Other branch pushes do not start it either;
+   dispatch the workflow manually to validate those branches.
 3. Approve the `github-pages` environment deployment if your repository requires it.
    The deploy job exposes the resulting Pages URL, normally
    `https://<owner>.github.io/PhoneticAnnotator/`.
@@ -399,8 +410,9 @@ without duplicating the site in each test artifact.
 Firefox and WebKit are skipped in CI, including their Ubuntu package downloads;
 their Playwright projects remain available for optional local checks.
 CI installs only Chromium's headless shell, caches npm downloads and build-job NuGet
-packages, and skips WASM workload manifest refreshes. New PR revisions cancel
-superseded PR runs, while main/manual deployments are not cancelled mid-deploy.
+packages, and skips WASM workload manifest refreshes. Pages workflows run on
+configured branch pushes or manual dispatch, not pull requests; deployments
+are not cancelled mid-deploy.
 Release AOT and both runtime publishes remain enabled so deployment tests exercise
 the actual optimized bundles.
 Only the deployment job receives Pages write/OIDC permissions.
