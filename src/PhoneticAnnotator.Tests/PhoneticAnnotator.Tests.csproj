@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PhoneticAnnotator.Core\PhoneticAnnotator.Core.csproj" />
     <Compile Include="../PhoneticAnnotator.Wasm/AnnotationSession.cs" Link="AnnotationSession.cs" />
+    <Compile Include="../../tests/PhoneticAnnotator.Tests/*.cs" Link="Performance/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

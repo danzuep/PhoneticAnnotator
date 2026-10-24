@@ -9,6 +9,53 @@ namespace PhoneticAnnotator.Core;
 public static class GlossDocumentAssembler
 {
     /// <summary>
+    /// Copies borrowed tokens into an owned AST using candidate-only resolution.
+    /// Visitors remain independent of tokenizer strategies and enumeration.
+    /// </summary>
+    public static DocumentNode Assemble(
+        TokenEnumerator tokens,
+        bool pickFirstReading = false,
+        ISpanPhoneticAligner? aligner = null,
+        CancellationToken cancellationToken = default)
+    {
+        var children = new List<GlossAstNode>();
+        while (tokens.MoveNext())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var token = tokens.Current;
+            var candidates = token.ReadingCandidates;
+            if (candidates.Count == 0)
+            {
+                // The owned AST must outlive the borrowed source, so output nodes and strings
+                // necessarily allocate. No intermediate token or disambiguation records are created.
+                children.Add(new TextNode(token.Text.ToString()));
+            }
+            else if (candidates.Count > 1 && !pickFirstReading)
+            {
+                children.Add(new UnresolvedGlossNode(
+                    token.Text.ToString(), candidates, token.Language, token.ReadingSystem));
+            }
+            else if (token.ReadingSystem.AnnotationKind == ReadingAnnotationKind.PairedPronunciation)
+            {
+                children.Add(new PronunciationNode(
+                    token.Text.ToString(), candidates[0], token.Language, token.ReadingSystem));
+            }
+            else if (aligner is null)
+            {
+                children.Add(new RubyNode(
+                    token.Text.ToString(), candidates[0], token.Language, token.ReadingSystem));
+            }
+            else
+            {
+                AppendAlignedNodes(children, token.Text, token.Language, token.ReadingSystem, candidates[0], aligner);
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return new DocumentNode(children.AsReadOnly());
+    }
+
+    /// <summary>
     /// Disambiguates tokens and copies their text into an immutable document tree.
     /// </summary>
     /// <param name="tokens">The source-backed token stream.</param>
@@ -44,7 +91,11 @@ public static class GlossDocumentAssembler
             .WithCancellation(cancellationToken)
             .ConfigureAwait(false))
         {
-            var baseText = token.SourceToken.Text.ToString();
+            // Aligned output owns individual segment strings, not a redundant whole-token copy.
+            var baseText = token.Status == ReadingResolution.Resolved && aligner is not null
+                && token.SourceToken.ReadingSystem.AnnotationKind != ReadingAnnotationKind.PairedPronunciation
+                ? string.Empty
+                : token.SourceToken.Text.ToString();
             switch (token.Status)
             {
                 case ReadingResolution.Resolved:
@@ -66,7 +117,8 @@ public static class GlossDocumentAssembler
                     }
                     else
                     {
-                        AppendAlignedNodes(children, token.SourceToken, token.ResolvedReading!, aligner);
+                        AppendAlignedNodes(children, token.SourceToken.Text.Span, token.SourceToken.Language,
+                            token.SourceToken.ReadingSystem, token.ResolvedReading!, aligner);
                     }
                     break;
                 case ReadingResolution.Ambiguous:
@@ -88,19 +140,20 @@ public static class GlossDocumentAssembler
 
     private static void AppendAlignedNodes(
         List<GlossAstNode> children,
-        MemoryToken token,
+        ReadOnlySpan<char> baseText,
+        LanguageCode language,
+        ReadingSystem readingSystem,
         string resolvedReading,
         ISpanPhoneticAligner aligner)
     {
         if (!string.Equals(
-            token.Language.Value,
+            language.Value,
             aligner.SupportedLanguage.Value,
             StringComparison.OrdinalIgnoreCase))
         {
             throw new ArgumentException("The aligner language must match the token language.", nameof(aligner));
         }
 
-        ReadOnlySpan<char> baseText = token.Text.Span;
         ReadOnlySpan<char> fullReading = resolvedReading.AsSpan();
         if (baseText.IsEmpty || fullReading.IsEmpty)
         {
@@ -139,14 +192,15 @@ public static class GlossDocumentAssembler
                     throw new InvalidOperationException("Alignment segments must partition the source and reading in order.");
                 }
 
+                // Segment strings are the owned output; borrowed spans cannot be stored in the AST.
                 var segmentBaseText = baseText.Slice(segment.BaseStartIndex, segment.BaseLength).ToString();
                 if (segment.IsAnnotated)
                 {
                     children.Add(new RubyNode(
                         segmentBaseText,
                         fullReading.Slice(segment.GlossStartIndex, segment.GlossLength).ToString(),
-                        token.Language,
-                        token.ReadingSystem));
+                        language,
+                        readingSystem));
                 }
                 else
                 {

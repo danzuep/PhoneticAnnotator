@@ -8,7 +8,8 @@ Phonetic Annotator is a .NET 10 library with browser-only deployments for adding
 
 `src/PhoneticAnnotator.Wasm` uses `Microsoft.NET.Sdk.WebAssembly`, `browser-wasm`,
 and direct `[JSExport]` / `[JSImport]` interop. It has no Blazor or ASP.NET Core
-runtime dependency. Install the .NET 10 SDK, then run from the repository root:
+runtime dependency. Install the .NET 10 SDK and Node.js 24 (for declaration generation),
+then run from the repository root:
 
 ```sh
 dotnet workload install wasm-tools
@@ -127,6 +128,90 @@ array in a read-only `MemoryStream` without cloning it. AST nodes, decoded dicti
 entries, options, and returned strings still allocate. Shared dictionaries are
 immutable, and each call owns its visitors/options/AST. The default runtime is
 single-threaded and does not require cross-origin isolation headers.
+
+### Background worker and TypeScript
+
+The published browser directory includes `PhoneticAnnotator.d.ts` and
+`phonetic-annotator-worker.js`. Create the latter as a **module Web Worker**;
+it loads `./_framework/dotnet.js` relative to its own location, not the page.
+Keep the worker beside `_framework`, or send an `initialize` request with
+`args: [{ runtimeUrl: "/your-engine/_framework/dotnet.js" }]` before other calls.
+Runtime URLs must point to trusted application assets.
+
+Send `{ id, method, args }`, using any unique string or finite numeric ID.
+Methods match the four .NET exports listed above; `args` is their ordered argument
+array. Dictionary bytes are `Uint8Array` values. Await the matching
+`{ id, ok: true, result }` response, or handle `{ id, ok: false, error: { name, message } }`.
+The worker also emits `{ type: "ready" }` or `{ type: "startup-error", error }`.
+Requests execute sequentially, including initialization and dictionary updates;
+one failed request does not discard subsequent requests. There is no cancellation
+protocol: terminate the worker to abandon all work and release its dictionaries.
+Use transferable buffers only when the caller no longer needs the dictionary bytes.
+
+`node scripts/generate-types.mjs` regenerates declarations from `[JSExport]`
+signatures. `node scripts/generate-types.mjs --check` detects stale output.
+The WASM build also generates them. Strings, serialized AST results, and dictionary
+interop still allocate/copy; running in a worker avoids main-thread computation,
+not message serialization costs.
+
+### Synchronous processing and AST filters
+
+`TokenEnumerator` borrows a `ReadOnlySpan<char>` and immutable lexicon snapshots.
+Its value tokens avoid async state machines and per-token heap records.
+`WordLexiconTokenizerStrategy.Tokenize` exposes this path;
+`GlossDocumentAssembler.Assemble` copies tokens into an owned AST.
+The asynchronous strategy APIs remain available for existing consumers.
+SIMD-backed `SearchValues<char>` checks accelerate BMP script boundaries; scalar
+decoding still preserves supplementary characters and malformed UTF-16.
+`SpanCharacterAligner` uses stack scratch for short readings and pooled character
+buffers for long readings, returning rentals in `finally` blocks. Jukujikun and
+ambiguous kana boundaries conservatively remain whole-token annotations.
+It does not infer readings absent from the dictionary or modernize historical kana.
+AST nodes, owned strings, rendering, and options parsing are intentionally not
+zero-allocation.
+
+Apply a `GlossFilterPipeline` **after assembly and before invoking any visitor**.
+Filters recursively transform immutable documents, sharing unchanged nodes:
+
+- `JlptLevelFilter` accepts a target N1–N5 integer and a caller-supplied
+  `IReadOnlyDictionary<Rune, int>` kanji-level mapping. N5 is easiest:
+  target N4 suppresses N5 and N4 kanji only when all kanji are mapped.
+  No official JLPT dataset is bundled.
+- `UserKnownKanjiFilter` defaults to an empty/no-op knowledge set; accepts known
+  words and kanji sets, or a `BitArray` indexed by Unicode scalar value.
+- `ScriptFilter` selects `JapaneseScript.Hiragana`, `Katakana`, or `Romaji`.
+  Romaji uses conservative Hepburn-style transcription, written vowel sequences
+  rather than macrons, and apostrophes for ambiguous moraic n. Unsupported
+  conversions retain the original annotation rather than inventing readings.
+
+Japanese-specific filters leave other languages unchanged; the filter contract and
+pipeline support any language without coupling tokenization to output visitors.
+Thai word annotation accepts caller-supplied `th` or `th-TH` TSV lexicons and
+`readingSystem: "th"`; this is dictionary matching, not a bundled Thai morphological
+segmenter or pronunciation model.
+
+### Benchmarks and release assets
+
+Run the BenchmarkDotNet suite in Release:
+
+```sh
+dotnet run --project benchmarks/PhoneticAnnotator.Benchmarks -c Release -- --filter '*'
+```
+
+`TextProcessingBenchmarks` compares span and asynchronous tokenization/AST
+assembly for Japanese, Chinese, Korean, and Thai using tweet-, article-, and
+chapter-sized synthetic inputs. `MemoryDiagnoser` reports allocated bytes/op
+alongside timing; setup/dictionary indexing are excluded. `AlignmentBenchmarks`
+exercises short and long alignment, including conservative ambiguous-run fallback.
+Use `--job Dry` only for smoke checks, not performance conclusions. Native .NET
+measurements do not predict WASM latency; profile the published worker on target
+browsers and devices before claiming browser speedups.
+
+Publishing a GitHub Release with a semantic-version tag (optionally prefixed `v`)
+builds and attaches the Core and Unihan `.nupkg` files, a complete AOT
+`PhoneticAnnotator-browser.zip`, and standalone declarations/worker assets.
+NuGet registry publication is not automatic; consumers of standalone assets also
+need the matching browser runtime bundle.
 
 ### Alternative NetWasm browser runtime
 
