@@ -1,3 +1,5 @@
+import { loadBundledDictionary, clearDictionaryCache } from './dictionary-cache.js';
+
 const demoModuleStartedAt = performance.now();
 
 export async function startDemo(createInterop, runtimeName) {
@@ -16,6 +18,9 @@ const latency = document.querySelector('#latency');
 const metadata = document.querySelector('#metadata');
 const characterMetadata = document.querySelector('#character-metadata');
 const diagnostics = document.querySelector('#diagnostics');
+const cacheStatus = document.querySelector('#dictionary-cache-status');
+const clearCache = document.querySelector('#clear-dictionary-cache');
+const dictionarySources = new Map();
 const timings = new Map();
 const characterFields = new Map();
 let unihanBytes;
@@ -67,11 +72,27 @@ async function measure(name, action) {
 
 async function download(path, name) {
     return measure(name, async () => {
-        const response = await fetch(path);
-        if (!response.ok) throw new Error(`${name} request failed (${response.status}).`);
-        return new Uint8Array(await response.arrayBuffer());
+        const { bytes, source } = await loadBundledDictionary(path);
+        dictionarySources.set(name, source);
+        const summary = [...dictionarySources].map(([label, value]) => `${label}: ${value}`).join('; ');
+        document.querySelector('#dictionary-sources').textContent = summary;
+        cacheStatus.textContent = summary;
+        return bytes;
     });
 }
+
+clearCache.addEventListener('click', async () => {
+    clearCache.disabled = true;
+    try {
+        cacheStatus.textContent = await clearDictionaryCache()
+            ? 'Bundled dictionary cache cleared. Loaded dictionaries remain in memory until reload.'
+            : 'Dictionary cache is unavailable; downloads still work without persistent storage.';
+    } catch (error) {
+        cacheStatus.textContent = `Could not clear dictionary cache: ${error.message}`;
+    } finally {
+        clearCache.disabled = false;
+    }
+});
 
 function renderMetadata() {
     if (!metadata.open || !unihanBytes) return;

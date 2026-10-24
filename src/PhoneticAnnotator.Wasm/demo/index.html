@@ -37,6 +37,12 @@
   <nav aria-label="Runtime"><a href="./">.NET WASM demo</a> · <a href="./netwasm/">NetWasm demo</a></nav>
   <p>Local, browser-only annotations. No Blazor or server; imported text stays on your device.</p>
   <p id="status" role="status">Starting .NET…</p>
+  <section class="card" aria-label="Bundled dictionary cache">
+    <button id="clear-dictionary-cache" type="button">Clear bundled dictionary cache</button>
+    <p id="dictionary-cache-status" role="status">Bundled dictionaries are cached on this device when storage is available.
+      Each load checks the server for updates; offline downloads can use cached bytes.
+      Uploaded dictionaries and source text are never persisted.</p>
+  </section>
   <fieldset id="controls" class="card" disabled>
     <legend>Annotation settings</legend>
     <div class="controls">
@@ -98,6 +104,7 @@
   <details id="diagnostics" class="card">
     <summary>Page and dictionary load diagnostics</summary>
     <dl id="load-timings"></dl>
+    <p id="dictionary-sources">Dictionary sources pending (network, cache after revalidation, or offline-cache).</p>
     <p>Runtime startup and dictionary downloads overlap. Dictionary indexing includes interop copies.
       A smaller runtime download does not guarantee faster compilation, initialization, or dictionary parsing.
       Compare the two separate runtime pages with the same browser cache and reading selection.</p>
@@ -109,7 +116,7 @@
     First-reading selection is a heuristic, not contextual disambiguation; uncheck it to preserve
     ambiguous candidates in JSON. Unknown text is preserved.</p>
   <p>The word dictionary contains examples: 山林, 食べる, 你好, 重庆, كتب; upload TSV files to extend it.
-    Dictionaries are preloaded during startup. Unihan is downloaded once (about 8.5 MB);
+    Dictionaries are preloaded during startup. Unihan is about 8.5 MB and reused from the bundled dictionary cache after revalidation;
     only the selected reading is indexed for annotation. Additional raw fields are available in character metadata.
     <a href="./THIRD-PARTY-NOTICES.txt">Data and runtime notices</a>.</p>
   <script type="module" src="app.mjs"></script>
