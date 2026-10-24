@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="../benchmarks/PhoneticAnnotator.Benchmarks/PhoneticAnnotator.Benchmarks.csproj" />
   <Project Path="PhoneticAnnotator.Cli/PhoneticAnnotator.Cli.csproj" />
   <Project Path="PhoneticAnnotator.Core/PhoneticAnnotator.Core.csproj" />
   <Project Path="PhoneticAnnotator.NetWasm/PhoneticAnnotator.NetWasm.csproj" />

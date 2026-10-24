@@ -25,6 +25,13 @@ jobs:
           cache-dependency-path: '**/*.csproj'
       - name: Install native WASM tools
         run: dotnet workload install wasm-tools --skip-manifest-update
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '24'
+      - name: Verify generated SDK and worker protocol
+        run: |
+          node scripts/generate-types.mjs --check
+          node --test scripts/generate-types.test.mjs tools/browser-tests/worker.test.mjs
       - name: Run managed tests
         run: dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
       - name: Publish AOT browser bundle

@@ -1,0 +1,56 @@
+name: Release packages and browser SDK
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-dotnet@v4.3.1
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '24'
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "::error::Release tag must be a NuGet version, optionally prefixed with v"
+            exit 1
+          fi
+          echo "PACKAGE_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Install native WASM tools
+        run: dotnet workload install wasm-tools --skip-manifest-update
+      - name: Test and verify declarations
+        run: |
+          dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
+          node scripts/generate-types.mjs --check
+          node --test scripts/generate-types.test.mjs tools/browser-tests/worker.test.mjs
+      - name: Pack managed libraries
+        run: |
+          dotnet pack src/Unihan/Unihan.csproj -c Release -p:PackageVersion="$PACKAGE_VERSION" -o artifacts/release
+          dotnet pack src/PhoneticAnnotator.Core/PhoneticAnnotator.Core.csproj -c Release -p:TargetFrameworks=net10.0 -p:PackageVersion="$PACKAGE_VERSION" -o artifacts/release
+      - name: Publish browser SDK
+        run: |
+          dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0
+          cp src/PhoneticAnnotator.Wasm/PhoneticAnnotator.d.ts artifacts/release/
+          cp src/PhoneticAnnotator.Wasm/phonetic-annotator-worker.js artifacts/release/
+          cd src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot
+          zip -qr "$GITHUB_WORKSPACE/artifacts/release/PhoneticAnnotator-browser.zip" .
+      - name: Attach packages and browser assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" artifacts/release/* --clobber

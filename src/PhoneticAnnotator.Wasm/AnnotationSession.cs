@@ -1,6 +1,3 @@
-using System.Buffers;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
 using PhoneticAnnotator.Core;
 
@@ -8,6 +5,9 @@ namespace PhoneticAnnotator.Wasm;
 
 public sealed class AnnotationSession
 {
+    private static readonly ISpanPhoneticAligner JapaneseAligner = new SpanCharacterAligner();
+    private static readonly ReadingSystem ThaiReadingSystem = new(
+        "th", "Thai", Unihan.Models.UnihanField.Unknown);
     private WordReadingLexicon[] _lexicons = [];
     private UnihanReadingDictionary? _unihan;
 
@@ -48,7 +48,20 @@ public sealed class AnnotationSession
         }
     }
 
-    private async Task<string> AnnotateAsync(string text, string optionsJson, IGlossAstVisitor visitor)
+    private Task<string> AnnotateAsync(string text, string optionsJson, IGlossAstVisitor visitor)
+    {
+        try
+        {
+            return Task.FromResult(Annotate(text, optionsJson, visitor));
+        }
+        catch (Exception exception)
+        {
+            // Retain the existing asynchronous API's faulted-task behavior.
+            return Task.FromException<string>(exception);
+        }
+    }
+
+    private string Annotate(string text, string optionsJson, IGlossAstVisitor visitor)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(optionsJson);
@@ -68,12 +81,14 @@ public sealed class AnnotationSession
                 "ja-jp" => "kJapanese", "zh-cn" => "kMandarin", "zh-hk" => "kCantonese",
                 "ko" => "kHangul", "vi" => "kVietnamese", "za" => "kZhuang",
                 "ar" or "ar-arab" => "ar",
+                "th" or "th-th" => "th",
                 _ => throw new ArgumentException($"Unsupported language '{languageTag}'.", nameof(optionsJson))
             };
-        var selected = readingId == "ar" ? null : UnihanReadingOption.Get(readingId);
+        var selected = readingId is "ar" or "th" ? null : UnihanReadingOption.Get(readingId);
         readingId = selected?.Id ?? readingId;
-        var language = selected?.Language ?? new LanguageCode("ar");
-        var readingSystem = selected?.ReadingSystem ?? ReadingSystem.ArabicTashkeel;
+        var language = selected?.Language ?? new LanguageCode(languageTag);
+        var readingSystem = selected?.ReadingSystem
+            ?? (readingId == "th" ? ThaiReadingSystem : ReadingSystem.ArabicTashkeel);
         var useUnihan = options.RootElement.TryGetProperty("strategy", out var strategyOption)
             && strategyOption.GetString() switch
         {
@@ -83,13 +98,16 @@ public sealed class AnnotationSession
         };
         if (!useUnihan)
         {
-            if (readingId is not ("kJapanese" or "kMandarin" or "kCantonese" or "kHangul" or "kVietnamese" or "kZhuang" or "ar"))
+            if (readingId is not ("kJapanese" or "kMandarin" or "kCantonese" or "kHangul" or "kVietnamese" or "kZhuang" or "ar" or "th"))
                 throw new ArgumentException("Alternate reading fields require the Unihan strategy.", nameof(optionsJson));
             if (selected is not null && !languageTag.Equals(selected.Language.Value, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Word dictionary language must match the reading system.", nameof(optionsJson));
-            if (selected is null && !languageTag.Equals("ar", StringComparison.OrdinalIgnoreCase)
+            if (readingId == "ar" && !languageTag.Equals("ar", StringComparison.OrdinalIgnoreCase)
                 && !languageTag.Equals("ar-Arab", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Arabic word dictionaries require language 'ar' or 'ar-Arab'.", nameof(optionsJson));
+            if (readingId == "th" && !languageTag.Equals("th", StringComparison.OrdinalIgnoreCase)
+                && !languageTag.Equals("th-TH", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Thai word dictionaries require language 'th' or 'th-TH'.", nameof(optionsJson));
             language = new LanguageCode(languageTag);
         }
         var unihan = useUnihan ? Volatile.Read(ref _unihan) : null;
@@ -100,55 +118,15 @@ public sealed class AnnotationSession
         var alignOkurigana = !options.RootElement.TryGetProperty("alignOkurigana", out var alignmentOption)
             || alignmentOption.GetBoolean();
         ISpanPhoneticAligner? aligner = alignOkurigana && readingSystem == ReadingSystem.JapaneseKana
-            ? new JapaneseOkuriganaAligner()
+            ? JapaneseAligner
             : null;
         var snapshot = Volatile.Read(ref _lexicons);
-        var document = await GlossDocumentAssembler.AssembleAsync(
-            TokenizeAsync(text.AsMemory(), snapshot, language, readingSystem, unihan),
-            new CandidateOnlyDisambiguator(pickFirst),
-            aligner).ConfigureAwait(false);
+        var document = GlossDocumentAssembler.Assemble(
+            new TokenEnumerator(text.AsSpan(), snapshot, language, readingSystem, unihan),
+            pickFirst,
+            aligner);
         document.Accept(visitor);
         return visitor.GetResult();
     }
 
-    private static async IAsyncEnumerable<MemoryToken> TokenizeAsync(
-        ReadOnlyMemory<char> text,
-        WordReadingLexicon[] lexicons,
-        LanguageCode language,
-        ReadingSystem readingSystem,
-        UnihanReadingDictionary? unihan,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        for (var offset = 0; offset < text.Length;)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var length = 0;
-            IReadOnlyList<string> candidates = Array.Empty<string>();
-            // Longest match wins; the most recently loaded chunk wins equal-length ties.
-            foreach (var lexicon in unihan is null ? lexicons : Array.Empty<WordReadingLexicon>())
-            {
-                if (lexicon.TryGetLongestMatch(language, text.Span, offset, out var matchLength, out var readings)
-                    && matchLength >= length)
-                {
-                    length = matchLength;
-                    candidates = readings;
-                }
-            }
-
-            if (length == 0)
-            {
-                if (Rune.DecodeFromUtf16(text.Span[offset..], out var rune, out length) != OperationStatus.Done)
-                {
-                    length = 1;
-                }
-                else if (unihan is not null)
-                {
-                    candidates = unihan.GetReadings(rune);
-                }
-            }
-
-            yield return new MemoryToken(text.Slice(offset, length), offset, language, readingSystem, candidates);
-            offset += length;
-        }
-    }
 }

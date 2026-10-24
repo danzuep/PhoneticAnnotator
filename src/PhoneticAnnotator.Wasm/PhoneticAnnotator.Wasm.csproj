@@ -13,6 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="PhoneticAnnotator.d.ts;phonetic-annotator-worker.js" Link="wwwroot/%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="../PhoneticAnnotator.Core/PhoneticAnnotator.Core.csproj" />
     <Content Include="demo/**/*" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -23,5 +25,9 @@
     <Content Include="../../THIRD-PARTY-NOTICES.md" Link="wwwroot/THIRD-PARTY-NOTICES.txt"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="GenerateInteropTypes" BeforeTargets="PrepareForBuild;PrepareForPublish">
+    <Exec Command="node &quot;$(MSBuildProjectDirectory)/../../scripts/generate-types.mjs&quot;" />
+  </Target>
 
 </Project>

@@ -12,6 +12,7 @@ public sealed class WordLexiconTokenizerStrategy : ITokenizerStrategy
     private static readonly IReadOnlyList<string> NoCandidates = Array.Empty<string>();
 
     private readonly WordReadingLexicon _lexicon;
+    private readonly WordReadingLexicon[] _lexicons;
     private readonly ReadingSystem _readingSystem;
 
     /// <summary>
@@ -26,6 +27,7 @@ public sealed class WordLexiconTokenizerStrategy : ITokenizerStrategy
         ReadingSystem readingSystem)
     {
         _lexicon = lexicon ?? throw new ArgumentNullException(nameof(lexicon));
+        _lexicons = [lexicon];
         SupportedLanguage = supportedLanguage ?? throw new ArgumentNullException(nameof(supportedLanguage));
         _readingSystem = readingSystem ?? throw new ArgumentNullException(nameof(readingSystem));
         StrategyName = $"WordLexicon:{readingSystem.Tag}";
@@ -36,6 +38,10 @@ public sealed class WordLexiconTokenizerStrategy : ITokenizerStrategy
 
     /// <inheritdoc />
     public string StrategyName { get; }
+
+    /// <summary>Enumerates borrowed token slices synchronously, without per-token allocations.</summary>
+    public TokenEnumerator Tokenize(ReadOnlySpan<char> text, CancellationToken cancellationToken = default) =>
+        new(text, _lexicons, SupportedLanguage, _readingSystem, cancellationToken: cancellationToken);
 
     /// <inheritdoc />
     public IAsyncEnumerable<MemoryToken> TokenizeAsync(
