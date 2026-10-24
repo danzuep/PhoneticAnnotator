@@ -143,3 +143,55 @@ test('dictionary timeout aborts its fetch and terminates the profiling worker', 
     });
     expect(outcome).toEqual({ message: 'word dictionary load timed out.', aborted: true, terminated: true });
 });
+
+test('pagehide aborts and retries wait for the prior dictionary operation to settle', async ({ page }) => {
+    await page.route('**/dictionary-cache.js', route => route.fulfill({
+        contentType: 'text/javascript',
+        body: `
+            export const clearDictionaryCache = async () => true;
+            export const loadBundledDictionary = (_url, { signal }) => new Promise((_, reject) => {
+                if (globalThis.allowNextProfileLoad) {
+                    reject(new Error('next run reached dictionary loader'));
+                    return;
+                }
+                signal.addEventListener('abort', () => {
+                    globalThis.profileDictionaryAborted = true;
+                    globalThis.settleProfileDictionary = () => reject(signal.reason);
+                }, { once: true });
+                document.dispatchEvent(new Event('profile-test-dictionary-started'));
+            });
+        `
+    }));
+    await page.goto('./profile.html');
+    const outcome = await page.evaluate(async () => {
+        const original = window.Worker;
+        let terminated = 0;
+        window.Worker = class {
+            postMessage({ id }) { queueMicrotask(() => this.onmessage({ data: { id, ok: true } })); }
+            terminate() { terminated++; }
+        };
+        try {
+            const { runProfile } = await import('./profile.js');
+            const options = { iterations: 1, warmups: 0, timeoutMs: 1000 };
+            const started = new Promise(resolve => document.addEventListener(
+                'profile-test-dictionary-started', resolve, { once: true }));
+            const first = runProfile(options).then(() => 'unexpected success', error => error.message);
+            await started;
+            window.dispatchEvent(new Event('pagehide'));
+            const firstError = await first;
+            const retryError = await runProfile(options).then(() => 'unexpected success', error => error.message);
+            globalThis.allowNextProfileLoad = true;
+            globalThis.settleProfileDictionary();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const settledRetry = await runProfile(options).then(() => 'unexpected success', error => error.message);
+            return { firstError, retryError, settledRetry, aborted: globalThis.profileDictionaryAborted, terminated };
+        } finally {
+            window.Worker = original;
+        }
+    });
+    expect(outcome).toEqual({
+        firstError: 'Profiling page closed.',
+        retryError: 'A previous dictionary cache operation is still settling; wait before retrying.',
+        settledRetry: 'next run reached dictionary loader', aborted: true, terminated: 2
+    });
+});

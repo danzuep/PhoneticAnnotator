@@ -14,6 +14,7 @@ const supplements = {
 };
 const sizes = { tweet: 140, article: 2000, chapter: 12000 };
 const activeWorkers = new Set();
+const activeCacheOperations = new Set();
 let running = false;
 
 export function validateOptions(options = {}) {
@@ -57,19 +58,28 @@ async function timed(action) {
 async function bounded(action, timeoutMs, description) {
     let timer;
     const controller = new AbortController();
+    const operation = Promise.resolve().then(() => action(controller.signal));
+    const entry = { controller };
+    activeCacheOperations.add(entry);
+    operation.then(
+        () => activeCacheOperations.delete(entry),
+        () => activeCacheOperations.delete(entry));
+    let onAbort;
     try {
         return await Promise.race([
-            Promise.resolve().then(() => action(controller.signal)),
+            operation,
             new Promise((_, reject) => {
+                onAbort = () => reject(controller.signal.reason);
+                controller.signal.addEventListener('abort', onAbort, { once: true });
                 timer = setTimeout(() => {
                     const error = new Error(`${description} timed out.`);
                     controller.abort(error);
-                    reject(error);
                 }, timeoutMs);
             })
         ]);
     } finally {
         clearTimeout(timer);
+        controller.signal.removeEventListener('abort', onAbort);
     }
 }
 
@@ -91,7 +101,8 @@ export function createWorkerClient(timeoutMs) {
             });
         },
         close(error = new Error('Profiling worker terminated.')) {
-            failure ??= error;
+            if (failure) return;
+            failure = error;
             for (const request of pending.values()) {
                 clearTimeout(request.timer);
                 request.reject(failure);
@@ -251,6 +262,9 @@ async function pass(cacheState, options) {
 export async function runProfile(options = {}) {
     const settings = validateOptions(options);
     if (running) throw new Error('A profile is already running.');
+    if (activeCacheOperations.size) {
+        throw new Error('A previous dictionary cache operation is still settling; wait before retrying.');
+    }
     running = true;
     try {
         progress('Clearing dictionary application cache (not browser HTTP/runtime cache)');
@@ -276,7 +290,7 @@ export async function runProfile(options = {}) {
                 annotation: 'Sequential AnnotateToJson worker round trip includes structured cloning, interop and managed JSON serialization; excludes main-thread JSON parsing.',
                 exclusions: 'One correctness probe and configured warmups per workload are excluded; indexing/download are single observations, not latency distributions.',
                 percentile: 'p95 nearest rank; median averages two middle samples for even counts.',
-                timeouts: 'Worker timeouts terminate the worker and reject pending calls. Dictionary timeouts abort fetch/body reads. CacheStorage operations already in progress cannot be cancelled and may finish in the background. Each new run clears application cache first; do not interpret a retry as a cold browser/network run.',
+                timeouts: 'Worker timeouts terminate the worker and reject pending calls. Dictionary timeouts/pagehide abort fetch/body reads. CacheStorage operations already in progress cannot be cancelled; retries are blocked until prior operations settle. Each new run clears application cache first; do not interpret a retry as a cold browser/network run.',
                 content: 'Deterministic repeated synthetic inputs, actual bundled dictionaries plus explicitly identified in-memory word TSV supplements.',
                 caveats: 'No managed-only compute or physical-device claim. Browser scheduling, JIT, timer precision, thermal state and background tabs affect results. FNV-1a fingerprints are non-cryptographic.'
             },
@@ -291,6 +305,7 @@ export async function runProfile(options = {}) {
 }
 
 window.addEventListener('pagehide', () => {
+    for (const entry of activeCacheOperations) entry.controller.abort(new Error('Profiling page closed.'));
     for (const client of activeWorkers) client.close(new Error('Profiling page closed.'));
 });
 
