@@ -34,8 +34,9 @@ test('unsupported exports fail instead of silently producing inaccurate declarat
     ]) assert.throws(() => generateDeclarations(fixture(signature)), /Unsupported/);
     assert.throws(() => generateDeclarations(fixture('public static Task Render() => default;')
         .replace('[JSExport]', '[JSExport("custom")]')), /Unsupported export attribute/);
-    assert.throws(() => generateDeclarations(fixture('public static Task Render() => default;')
-        .replace('}', '[JSExport] public static Task Render(string text) => default; }')), /Overloaded/);
+    assert.throws(() => generateDeclarations(fixture(
+        'public static Task Render() => default;\n[JSExport] public static Task Render(string text) => default;'
+    )), /Overloaded/);
     assert.throws(() => generateDeclarations(fixture('').replace('[JSExport]', '')), /No \[JSExport\]/);
 });
 
