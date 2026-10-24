@@ -1,4 +1,4 @@
-import { loadDictionary, clearDictionaryCache } from './dictionary-cache.js';
+import { loadBundledDictionary as loadDictionary, clearDictionaryCache } from './dictionary-cache.js';
 
 const languages = [
     { language: 'ja-JP', reading: 'kJapanese', separator: '。' },
@@ -56,11 +56,16 @@ async function timed(action) {
 
 async function bounded(action, timeoutMs, description) {
     let timer;
+    const controller = new AbortController();
     try {
         return await Promise.race([
-            Promise.resolve().then(action),
+            Promise.resolve().then(() => action(controller.signal)),
             new Promise((_, reject) => {
-                timer = setTimeout(() => reject(new Error(`${description} timed out.`)), timeoutMs);
+                timer = setTimeout(() => {
+                    const error = new Error(`${description} timed out.`);
+                    controller.abort(error);
+                    reject(error);
+                }, timeoutMs);
             })
         ]);
     } finally {
@@ -205,7 +210,8 @@ async function pass(cacheState, options) {
         for (const [name, path] of [['word', './word-readings.tsv'], ['unihan', './Unihan_Readings.txt']]) {
             progress(`${cacheState}: ${name} dictionary load`);
             const measured = await timed(() => bounded(
-                () => loadDictionary(new URL(path, import.meta.url).href), options.timeoutMs, `${name} dictionary load`));
+                signal => loadDictionary(new URL(path, import.meta.url).href, { signal }),
+                options.timeoutMs, `${name} dictionary load`));
             const { bytes, source } = measured.value;
             if (!(bytes instanceof Uint8Array) || !bytes.length
                 || !['network', 'cache', 'offline-cache'].includes(source)) {
@@ -270,9 +276,11 @@ export async function runProfile(options = {}) {
                 annotation: 'Sequential AnnotateToJson worker round trip includes structured cloning, interop and managed JSON serialization; excludes main-thread JSON parsing.',
                 exclusions: 'One correctness probe and configured warmups per workload are excluded; indexing/download are single observations, not latency distributions.',
                 percentile: 'p95 nearest rank; median averages two middle samples for even counts.',
+                timeouts: 'Worker timeouts terminate the worker and reject pending calls. Dictionary timeouts abort fetch/body reads. CacheStorage operations already in progress cannot be cancelled and may finish in the background. Each new run clears application cache first; do not interpret a retry as a cold browser/network run.',
                 content: 'Deterministic repeated synthetic inputs, actual bundled dictionaries plus explicitly identified in-memory word TSV supplements.',
                 caveats: 'No managed-only compute or physical-device claim. Browser scheduling, JIT, timer precision, thermal state and background tabs affect results. FNV-1a fingerprints are non-cryptographic.'
             },
+            dictionaryCacheClearSucceeded: clear.value === true,
             dictionaryCacheClearMs: clear.elapsedMs, passes: [cold, warm]
         };
         progress('Profile complete. Results stayed in this browser.');

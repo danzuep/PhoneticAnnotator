@@ -22,6 +22,9 @@
     warm application-cache pass. Both use fresh workers. Browser HTTP/runtime caches are <strong>not</strong>
     cleared: “cold dictionary cache” does not mean cold network, browser, or runtime.
     Network access is only to the bundled same-origin runtime and dictionaries; no results are uploaded.</p>
+  <p>A dictionary timeout stops the profile and aborts fetch/body reads; cache storage operations
+    already in progress may still finish in the background. A retry clears application cache again, not the
+    browser's HTTP cache. Unavailable cache storage causes an explicit error rather than a claimed cold/warm comparison.</p>
   <p>Annotation timings are sequential worker round trips including messaging, .NET interop and managed
     JSON serialization, not managed-only nanosecond timings. Warmups are excluded. Synthetic repeated
     tweet/article/chapter workloads are not natural-language benchmarks. Korean/Thai use deterministic
