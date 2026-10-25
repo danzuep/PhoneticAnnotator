@@ -3,7 +3,8 @@ name: Browser WebAssembly and Pages
 on:
   push:
     branches: [main, '**[dD][eE][vV][oO][pP][sS]**']
-  pull_request:
+  # Pages builds/deployments run only after pushes or an explicit manual run,
+  # not when a pull request is opened or updated.
   workflow_dispatch:
     inputs:
       profile:

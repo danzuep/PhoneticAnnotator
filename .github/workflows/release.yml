@@ -1,56 +1,196 @@
 name: Release packages and browser SDK
 
 on:
-  release:
-    types: [published]
+  # Base-repository context permits releases for merged fork PRs too. The job
+  # below only checks out trusted, already-merged code, never an open PR head.
+  pull_request_target:
+    branches: [main]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      publish_nuget:
+        description: Publish built package to NuGet.org
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: read
+  id-token: write
+
+# Serialize version allocation and publication; never interrupt a running release.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
 
 jobs:
   release:
+    if: >-
+      (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
     steps:
+      # Start from a trusted base-repository snapshot, never a PR head.
       - uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      # Verify the merged commit is on main before executing any of its code.
+      # Pinning it also prevents queued runs from building a newer merge.
+      - name: Select verified merge commit
+        if: github.event_name == 'pull_request_target'
+        env:
+          MERGE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$MERGE_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Expected a merged commit SHA"
+            exit 1
+          fi
+          git merge-base --is-ancestor "$MERGE_COMMIT" refs/remotes/origin/main
+          git checkout --detach "$MERGE_COMMIT"
+
+      # Ignore non-stable/non-SemVer tags and compare versions numerically.
+      # PR titles are untrusted data: pass them via the environment, not shell source.
+      - name: Calculate release version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          stable_tag='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          tag=v0.1.0
+          while IFS= read -r candidate; do
+            if [[ "$candidate" =~ $stable_tag ]]; then
+              tag="$candidate"
+              break
+            fi
+          done < <(git tag -l "v*" --sort=-version:refname)
+
+          if [[ "$EVENT_NAME" == pull_request_target ]]; then
+            # Re-running an already tagged merge must not allocate another version.
+            existing_tag=''
+            while IFS= read -r candidate; do
+              if [[ "$candidate" =~ $stable_tag ]]; then
+                existing_tag="$candidate"
+                break
+              fi
+            done < <(git tag -l "v*" --points-at HEAD --sort=-version:refname)
+            if [[ -n "$existing_tag" ]]; then
+              tag="$existing_tag"
+            else
+              IFS=. read -r major minor patch <<< "${tag#v}"
+              title="${PR_TITLE,,}"
+              if [[ "$title" == *major:* ]]; then
+                major=$((major + 1)); minor=0; patch=0
+              elif [[ "$title" == *minor:* ]]; then
+                minor=$((minor + 1)); patch=0
+              else
+                patch=$((patch + 1))
+              fi
+              tag="v${major}.${minor}.${patch}"
+            fi
+          elif git show-ref --verify --quiet "refs/tags/$tag"; then
+            # A manual rebuild must package the tagged source, not newer main code.
+            git checkout --detach "$tag"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "VERSION_WITHOUT_V=${tag#v}" >> "$GITHUB_ENV"
+
+      # Only the .NET 10 SDK is configured; no Node.js tooling is needed.
       - uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: '10.0.x'
-      - uses: actions/setup-node@v4.4.0
-        with:
-          node-version: '24'
-      - name: Validate release version
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: |
-          version="${RELEASE_TAG#v}"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
-            echo "::error::Release tag must be a NuGet version, optionally prefixed with v"
-            exit 1
-          fi
-          echo "PACKAGE_VERSION=$version" >> "$GITHUB_ENV"
       - name: Install native WASM tools
         run: dotnet workload install wasm-tools --skip-manifest-update
-      - name: Test and verify declarations
-        run: |
-          dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release
-          node scripts/generate-types.mjs --check
-          node --test scripts/generate-types.test.mjs tools/browser-tests/worker.test.mjs tools/browser-tests/dictionary-cache.test.mjs
+
+      - name: Test managed libraries
+        run: dotnet test src/PhoneticAnnotator.Tests/PhoneticAnnotator.Tests.csproj -c Release -p:TargetFrameworks=net10.0
+
+      # PackageId is defined per project so the Core -> Unihan dependency is
+      # also prefixed correctly. Include portable PDB symbol packages.
       - name: Pack managed libraries
         run: |
-          dotnet pack src/Unihan/Unihan.csproj -c Release -p:PackageVersion="$PACKAGE_VERSION" -o artifacts/release
-          dotnet pack src/PhoneticAnnotator.Core/PhoneticAnnotator.Core.csproj -c Release -p:TargetFrameworks=net10.0 -p:PackageVersion="$PACKAGE_VERSION" -o artifacts/release
+          dotnet pack src/Unihan/Unihan.csproj -c Release /p:Version="${VERSION_WITHOUT_V}" -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg -o ./artifacts
+          dotnet pack src/PhoneticAnnotator.Core/PhoneticAnnotator.Core.csproj -c Release /p:Version="${VERSION_WITHOUT_V}" -p:TargetFrameworks=net10.0 -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg -o ./artifacts
+
+      # Use the committed interop declarations rather than invoking their Node
+      # generator. Preserve the full browser output, including nested WASM files.
       - name: Publish browser SDK
         run: |
-          dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0
-          cp src/PhoneticAnnotator.Wasm/PhoneticAnnotator.d.ts artifacts/release/
-          cp src/PhoneticAnnotator.Wasm/phonetic-annotator-worker.js artifacts/release/
+          dotnet publish src/PhoneticAnnotator.Wasm/PhoneticAnnotator.Wasm.csproj -c Release -f net10.0 /p:Version="${VERSION_WITHOUT_V}" -p:TargetFrameworks=net10.0 -p:SkipInteropTypeGeneration=true
+          cp src/PhoneticAnnotator.Wasm/PhoneticAnnotator.d.ts artifacts/
+          cp src/PhoneticAnnotator.Wasm/phonetic-annotator-worker.js artifacts/
           cd src/PhoneticAnnotator.Wasm/bin/Release/net10.0/publish/wwwroot
-          zip -qr "$GITHUB_WORKSPACE/artifacts/release/PhoneticAnnotator-browser.zip" .
-      - name: Attach packages and browser assets
+          zip -qr "$GITHUB_WORKSPACE/artifacts/PhoneticAnnotator-browser.zip" .
+          # Also expose compiled WASM binaries as individual release assets.
+          find . -type f -name '*.wasm' -exec cp -t "$GITHUB_WORKSPACE/artifacts" -- {} +
+
+      # Keep build results available even if a downstream publishing step fails.
+      - name: Retain release artifacts
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: release-${{ steps.version.outputs.tag }}
+          path: ./artifacts/*
+          if-no-files-found: error
+
+      # Never move an existing tag, including when recovering a partial release.
+      - name: Create and push Git tag
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            if [[ "$(git rev-parse "$RELEASE_TAG^{commit}")" != "$(git rev-parse HEAD)" ]]; then
+              echo "::error::Refusing to move an existing release tag"
+              exit 1
+            fi
+          else
+            git tag "$RELEASE_TAG"
+          fi
+          git push origin "refs/tags/$RELEASE_TAG"
+
+      # Exchange GitHub OIDC identity against the active NuGet Trusted Publishing
+      # rule. NUGET_USER overrides the initiating GitHub username (also on reruns).
+      - name: Authenticate to NuGet.org
+        if: inputs.publish_nuget == true
+        id: nuget_login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ vars.NUGET_USER || github.triggering_actor }}
+
+      # Registry publication remains manual opt-in; use only the short-lived key.
+      - name: Publish packages to NuGet.org
+        if: inputs.publish_nuget == true
+        env:
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$NUGET_API_KEY" ]]; then
+            echo "::error::NuGet Trusted Publishing did not return a temporary API key"
+            exit 1
+          fi
+          for package in ./artifacts/*.nupkg; do
+            dotnet nuget push "$package" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
+          done
+
+      # GitHub CLI's --generate-notes is equivalent to generate_release_notes:
+      # true. Reuse existing releases on manual/retry runs and replace assets.
+      - name: Create GitHub Release and attach all assets
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$RELEASE_TAG" artifacts/release/* --clobber
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --generate-notes ./artifacts/*
+          else
+            gh release upload "$RELEASE_TAG" ./artifacts/* --clobber
+          fi
