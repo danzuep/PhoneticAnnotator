@@ -336,9 +336,16 @@ declarations without Node.js; ordinary builds still regenerate them.
 Run the workflow manually on `main` to rebuild the latest stable tag without
 bumping it (or release `v0.1.0` from the selected main commit if no tag exists).
 Existing tags are never moved. To publish packages to NuGet.org, select
-`publish_nuget` and configure the repository secret `NUGET_API_KEY`; duplicate
-packages are skipped. Consumers of standalone assets also need the matching
-browser runtime bundle.
+`publish_nuget` and set the repository Actions variable `NUGET_USER` to the
+NuGet.org username owning the active `Zue.PhoneticAnnotator` Trusted Publishing
+rule (not the rule name). The rule must authorize owner `danzuep`, repository
+`PhoneticAnnotator`, and workflow file `release.yml`. Leave its environment
+unset because the release job does not use a GitHub environment. Ensure the
+account can publish both `Zue.PhoneticAnnotator.Core` and `Zue.Unihan`.
+The workflow exchanges GitHub OIDC identity for a short-lived NuGet key;
+no stored `NUGET_API_KEY` secret is needed, and the old secret can be deleted.
+Duplicate packages are skipped. Consumers of standalone assets also need the
+matching browser runtime bundle.
 
 ### Alternative NetWasm browser runtime
 
