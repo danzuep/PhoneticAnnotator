@@ -336,9 +336,11 @@ declarations without Node.js; ordinary builds still regenerate them.
 Run the workflow manually on `main` to rebuild the latest stable tag without
 bumping it (or release `v0.1.0` from the selected main commit if no tag exists).
 Existing tags are never moved. To publish packages to NuGet.org, select
-`publish_nuget` and set the repository Actions variable `NUGET_USER` to the
-NuGet.org username owning the active `Zue.PhoneticAnnotator` Trusted Publishing
-rule (not the rule name). The rule must authorize owner `danzuep`, repository
+`publish_nuget`. The NuGet username defaults to the GitHub user initiating the
+workflow (or its rerun), via `github.triggering_actor`. If your NuGet.org username
+differs, set the repository Actions variable `NUGET_USER` to override it. This
+must be the account owning the active `Zue.PhoneticAnnotator` Trusted Publishing
+rule, not the rule name. The rule must authorize owner `danzuep`, repository
 `PhoneticAnnotator`, and workflow file `release.yml`. Leave its environment
 unset because the release job does not use a GitHub environment. Ensure the
 account can publish both `Zue.PhoneticAnnotator.Core` and `Zue.Unihan`.

@@ -157,13 +157,13 @@ jobs:
           git push origin "refs/tags/$RELEASE_TAG"
 
       # Exchange GitHub OIDC identity against the active NuGet Trusted Publishing
-      # rule. NUGET_USER is the NuGet account username, not the rule name.
+      # rule. NUGET_USER overrides the initiating GitHub username (also on reruns).
       - name: Authenticate to NuGet.org
         if: inputs.publish_nuget == true
         id: nuget_login
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         with:
-          user: ${{ vars.NUGET_USER }}
+          user: ${{ vars.NUGET_USER || github.triggering_actor }}
 
       # Registry publication remains manual opt-in; use only the short-lived key.
       - name: Publish packages to NuGet.org
