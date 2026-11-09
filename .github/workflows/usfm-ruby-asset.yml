@@ -1,6 +1,8 @@
 name: Build USFM ruby asset
 
 on:
+  push:
+    branches: [devops/usfm-ruby-asset]
   workflow_dispatch:
     inputs:
       usfm_url:
@@ -21,9 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      USFM_URL: ${{ inputs.usfm_url }}
-      LANGUAGE: ${{ inputs.language }}
-      TAG: ${{ inputs.release_tag }}
+      USFM_URL: ${{ inputs.usfm_url || 'https://ebible.org/Scriptures/cmn-cu89t_usfm.zip' }}
+      LANGUAGE: ${{ inputs.language || 'zh-HK' }}
+      TAG: ${{ inputs.release_tag || 'usfm-ruby' }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4.2.2
