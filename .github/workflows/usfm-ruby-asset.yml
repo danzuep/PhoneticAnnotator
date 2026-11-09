@@ -5,9 +5,9 @@ on:
     branches: [devops/usfm-ruby-asset]
   workflow_dispatch:
     inputs:
-      usfm_url:
-        description: USFM zip to download
-        default: https://ebible.org/Scriptures/cmn-ncvt_usfm.zip
+      translation:
+        description: eBible translation ID to download (https://ebible.org/Scriptures/<id>_usfm.zip)
+        default: cmn-ncvt
       language:
         description: Language code for the readings (zh-HK adds Jyutping)
         default: zh-HK
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      USFM_URL: ${{ inputs.usfm_url || 'https://ebible.org/Scriptures/cmn-ncvt_usfm.zip' }}
+      TRANSLATION: ${{ inputs.translation || 'cmn-ncvt' }}
       LANGUAGE: ${{ inputs.language || 'zh-HK' }}
       TAG: ${{ inputs.release_tag || 'usfm-ruby' }}
       GH_TOKEN: ${{ github.token }}
@@ -35,15 +35,15 @@ jobs:
       - name: Download USFM and add ruby
         run: |
           mkdir -p dist
-          curl -fsSL "$USFM_URL" -o full.zip
+          curl -fsSL "https://ebible.org/Scriptures/${TRANSLATION}_usfm.zip" -o full.zip
           dotnet run -c Release --project src/PhoneticAnnotator.Cli -- \
             --data data/Unihan_Readings.txt --language "$LANGUAGE" \
-            --usfm-in full.zip --usfm-out dist/usfm-ruby.zip
+            --usfm-in full.zip --usfm-out "dist/${TRANSLATION}_${LANGUAGE}.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: usfm-ruby
-          path: dist/usfm-ruby.zip
+          name: ${{ env.TRANSLATION }}_${{ env.LANGUAGE }}
+          path: dist/${{ env.TRANSLATION }}_${{ env.LANGUAGE }}.zip
       - name: Publish release asset
         run: |
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes "USFM with ruby text" --prerelease
-          gh release upload "$TAG" dist/usfm-ruby.zip --clobber
+          gh release upload "$TAG" "dist/${TRANSLATION}_${LANGUAGE}.zip" --clobber
