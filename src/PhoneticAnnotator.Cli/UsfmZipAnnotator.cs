@@ -13,6 +13,7 @@ internal static class UsfmZipAnnotator
 	{
 		var utf8 = new UTF8Encoding(false);
 		var count = 0;
+		await EnsureNoRubyAsync(inputZip, utf8).ConfigureAwait(false);
 		if (File.Exists(outputZip))
 		{
 			File.Delete(outputZip);
@@ -58,6 +59,20 @@ internal static class UsfmZipAnnotator
 		}
 
 		return count;
+	}
+
+	private static async Task EnsureNoRubyAsync(string inputZip, Encoding encoding)
+	{
+		using var input = ZipFile.OpenRead(inputZip);
+		foreach (var entry in input.Entries.Where(e => e.Name.EndsWith(".usfm", StringComparison.OrdinalIgnoreCase)
+			|| e.Name.EndsWith(".sfm", StringComparison.OrdinalIgnoreCase)))
+		{
+			using var reader = new StreamReader(entry.Open(), encoding);
+			if ((await reader.ReadToEndAsync().ConfigureAwait(false)).Contains("\\rb ", StringComparison.Ordinal))
+			{
+				throw new InvalidDataException($"Ruby text already exists in '{entry.FullName}'; refusing to annotate.");
+			}
+		}
 	}
 
 	private sealed class UsfmRubyVisitor : IGlossAstVisitor
