@@ -20,7 +20,6 @@ static async Task<int> RunAsync(string[] arguments)
 	try
 	{
 		var language = new LanguageCode(options["--language"]);
-		var text = options["--text"];
 		var format = options.GetValueOrDefault("--format", "html");
 
 		ITokenizerStrategy strategy;
@@ -47,9 +46,17 @@ static async Task<int> RunAsync(string[] arguments)
 			strategy = factory.GetStrategy(language);
 		}
 
+		var text = options.GetValueOrDefault("--text", string.Empty);
 		ISpanPhoneticAligner? aligner = language.Value.StartsWith("ja", StringComparison.OrdinalIgnoreCase)
 			? new JapaneseOkuriganaAligner()
 			: null;
+		if (options.TryGetValue("--usfm-in", out var usfmIn))
+		{
+			var count = await UsfmZipAnnotator.AnnotateAsync(usfmIn, options["--usfm-out"], strategy, aligner).ConfigureAwait(false);
+			Console.WriteLine($"Annotated {count} USFM files into {options["--usfm-out"]}");
+			return 0;
+		}
+
 		var document = await GlossDocumentAssembler.AssembleAsync(
 			strategy.TokenizeAsync(text.AsMemory()),
 			new CandidateOnlyDisambiguator(),
@@ -90,7 +97,7 @@ static bool TryParseArguments(
 	for (var index = 0; index < arguments.Length; index += 2)
 	{
 		var name = arguments[index];
-		if (name is not ("--data" or "--lexicon" or "--language" or "--text" or "--format"))
+		if (name is not ("--data" or "--lexicon" or "--language" or "--text" or "--format" or "--usfm-in" or "--usfm-out"))
 		{
 			error = $"Unknown option '{name}'.";
 			return false;
@@ -109,7 +116,14 @@ static bool TryParseArguments(
 		}
 	}
 
-	foreach (var required in new[] { "--language", "--text" })
+	var usfm = options.ContainsKey("--usfm-in");
+	if (usfm != options.ContainsKey("--usfm-out"))
+	{
+		error = "Specify '--usfm-in' and '--usfm-out' together.";
+		return false;
+	}
+
+	foreach (var required in usfm ? new[] { "--language" } : new[] { "--language", "--text" })
 	{
 		if (!options.ContainsKey(required))
 		{
@@ -137,4 +151,4 @@ static ReadingSystem GetReadingSystem(LanguageCode language) => language.Value.T
 };
 
 static void PrintUsage() =>
-	Console.Error.WriteLine("Usage: PhoneticAnnotator.Cli (--data <Unihan.zip|Unihan_Readings.txt> | --lexicon <word-readings.tsv>) --language <zh-CN|zh-HK|ja-JP|ar> --text <text> [--format html|anki|json]");
+	Console.Error.WriteLine("Usage: PhoneticAnnotator.Cli (--data <Unihan.zip|Unihan_Readings.txt> | --lexicon <word-readings.tsv>) --language <zh-CN|zh-HK|ja-JP|ar> (--text <text> [--format html|anki|json] | --usfm-in <in.zip> --usfm-out <out.zip>)");

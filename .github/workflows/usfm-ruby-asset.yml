@@ -1,0 +1,55 @@
+name: Build USFM ruby asset
+
+on:
+  workflow_dispatch:
+    inputs:
+      translation:
+        description: eBible translation ID to download (downloaded from <base_url>/<id><suffix>)
+        default: cmn-ncvt
+      base_url:
+        description: Override the download base URL
+        default: https://ebible.org/Scriptures
+      suffix:
+        description: Override the download file suffix
+        default: _usfm.zip
+      language:
+        description: Language code for the readings (zh-HK adds Jyutping)
+        default: zh-HK
+      release_tag:
+        description: Release that receives the zip as an asset
+        default: usfm-ruby
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TRANSLATION: ${{ inputs.translation || 'cmn-ncvt' }}
+      BASE_URL: ${{ inputs.base_url || 'https://ebible.org/Scriptures' }}
+      SUFFIX: ${{ inputs.suffix || '_usfm.zip' }}
+      LANGUAGE: ${{ inputs.language || 'zh-HK' }}
+      TAG: ${{ inputs.release_tag || 'usfm-ruby' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Download USFM and add ruby
+        run: |
+          mkdir -p dist
+          curl -fsSL "${BASE_URL%/}/${TRANSLATION}${SUFFIX}" -o full.zip
+          dotnet run -c Release --project src/PhoneticAnnotator.Cli -- \
+            --data data/Unihan_Readings.txt --language "$LANGUAGE" \
+            --usfm-in full.zip --usfm-out "dist/${TRANSLATION}_${LANGUAGE}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.TRANSLATION }}_${{ env.LANGUAGE }}
+          path: dist/${{ env.TRANSLATION }}_${{ env.LANGUAGE }}.zip
+      - name: Publish release asset
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes "USFM with ruby text" --prerelease
+          gh release upload "$TAG" "dist/${TRANSLATION}_${LANGUAGE}.zip" --clobber
