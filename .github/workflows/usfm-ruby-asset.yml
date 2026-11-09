@@ -1,0 +1,38 @@
+name: Build USFM ruby asset
+
+on:
+  workflow_dispatch:
+    inputs:
+      usfm_url:
+        description: USFM zip to download
+        default: https://ebible.org/Scriptures/engwebu_usfm.zip
+      release_tag:
+        description: Release that receives the zip as an asset
+        default: usfm-ruby
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      USFM_URL: ${{ inputs.usfm_url }}
+      TAG: ${{ inputs.release_tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Download USFM and add ruby
+        run: |
+          mkdir -p dist
+          curl -fsSL "$USFM_URL" -o full.zip
+          bash .github/scripts/add-ruby-usfm.sh full.zip .github/scripts/ruby-map.tsv dist/usfm-ruby.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: usfm-ruby
+          path: dist/usfm-ruby.zip
+      - name: Publish release asset
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes "USFM with ruby text" --prerelease
+          gh release upload "$TAG" dist/usfm-ruby.zip --clobber
