@@ -1,0 +1,39 @@
+name: Phonetic Annotator
+description: Install the Zue.PhoneticAnnotator.Cli .NET tool and run it.
+
+inputs:
+  version:
+    description: Tool version to install (empty installs the latest stable release)
+    default: ''
+  args:
+    description: Arguments passed to phonetic-annotator (see its --help)
+    required: true
+  setup-dotnet:
+    description: Install the .NET 10 SDK first (set false if already configured)
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@v4
+      if: inputs.setup-dotnet == 'true'
+      with:
+        dotnet-version: 10.0.x
+    - name: Install tool
+      shell: bash
+      env:
+        TOOL_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        args=(--tool-path "$RUNNER_TEMP/phonetic-annotator")
+        [[ -n "$TOOL_VERSION" ]] && args+=(--version "$TOOL_VERSION")
+        dotnet tool install Zue.PhoneticAnnotator.Cli "${args[@]}"
+        echo "$RUNNER_TEMP/phonetic-annotator" >> "$GITHUB_PATH"
+    - name: Run
+      shell: bash
+      env:
+        TOOL_ARGS: ${{ inputs.args }}
+      run: |
+        set -euo pipefail
+        # Word-split on purpose so callers can pass several arguments.
+        phonetic-annotator $TOOL_ARGS

@@ -323,12 +323,37 @@ For physical devices, serve the identical publication over HTTPS, open
 may lack Cache Storage. This environment cannot establish physical-device results;
 do not interpret emulated CI timing as a device-specific performance guarantee.
 
+### Using in other repositories and CI
+
+Packages are published to NuGet.org (see below) and every GitHub Release carries the
+same `.nupkg` files plus the browser zip.
+
+```sh
+dotnet add package Zue.PhoneticAnnotator.Core          # library (pulls in Zue.Unihan)
+dotnet tool install --global Zue.PhoneticAnnotator.Cli # provides `phonetic-annotator`
+gh release download --repo danzuep/PhoneticAnnotator --pattern PhoneticAnnotator-browser.zip
+```
+
+The CLI does not bundle the Unihan data; pass `--data` (for example
+`data/Unihan_Readings.txt` from this repository) or `--lexicon`. In GitHub Actions
+use the composite action, pinning a release tag:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: danzuep/PhoneticAnnotator@v0.1.1
+  with:
+    version: 0.1.1
+    args: --data Unihan_Readings.txt --language zh-HK --usfm-in in.zip --usfm-out out.zip
+```
+
+Set `setup-dotnet: 'false'` if the .NET 10 SDK is already configured.
+
 Merging a pull request into `main` runs `.github/workflows/release.yml`: the latest
 stable `vMAJOR.MINOR.PATCH` tag is bumped according to the PR title
 (`major:` before `minor:`, case-insensitive; otherwise patch). With no tag, the
 baseline is `v0.1.0`, so the first ordinary merge releases `v0.1.1`.
-The .NET 10 workflow tests and packages `Zue.PhoneticAnnotator.Core` and
-`Zue.Unihan`, creates the tag and a GitHub Release with generated notes, and
+The .NET 10 workflow tests and packages `Zue.PhoneticAnnotator.Core`,
+`Zue.Unihan` and the `Zue.PhoneticAnnotator.Cli` tool (smoke-tested), creates the tag and a GitHub Release with generated notes, and
 attaches `.nupkg`/`.snupkg` files, a complete AOT `PhoneticAnnotator-browser.zip`,
 and standalone declarations/worker assets. Release builds use committed interop
 declarations without Node.js; ordinary builds still regenerate them.
@@ -343,7 +368,7 @@ must be the account owning the active `Zue.PhoneticAnnotator` Trusted Publishing
 rule, not the rule name. The rule must authorize owner `danzuep`, repository
 `PhoneticAnnotator`, and workflow file `release.yml`. Leave its environment
 unset because the release job does not use a GitHub environment. Ensure the
-account can publish both `Zue.PhoneticAnnotator.Core` and `Zue.Unihan`.
+account can publish `Zue.PhoneticAnnotator.Core`, `Zue.Unihan` and `Zue.PhoneticAnnotator.Cli`.
 The workflow exchanges GitHub OIDC identity for a short-lived NuGet key;
 no stored `NUGET_API_KEY` secret is needed, and the old secret can be deleted.
 Duplicate packages are skipped. Consumers of standalone assets also need the
