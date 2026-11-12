@@ -119,6 +119,14 @@ jobs:
         run: |
           dotnet pack src/Unihan/Unihan.csproj -c Release /p:Version="${VERSION_WITHOUT_V}" -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg -o ./artifacts
           dotnet pack src/PhoneticAnnotator.Core/PhoneticAnnotator.Core.csproj -c Release /p:Version="${VERSION_WITHOUT_V}" -p:TargetFrameworks=net10.0 -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg -o ./artifacts
+          dotnet pack src/PhoneticAnnotator.Cli/PhoneticAnnotator.Cli.csproj -c Release /p:Version="${VERSION_WITHOUT_V}" -o ./artifacts
+
+      # Prove the packed tool installs and runs from the built package.
+      - name: Smoke test CLI tool package
+        run: |
+          set -euo pipefail
+          dotnet tool install Zue.PhoneticAnnotator.Cli --tool-path "$RUNNER_TEMP/tool" --add-source ./artifacts --version "${VERSION_WITHOUT_V}"
+          "$RUNNER_TEMP/tool/phonetic-annotator" --data data/Unihan_Readings.txt --language zh-HK --text 你好 --format json > /dev/null
 
       # Use the committed interop declarations rather than invoking their Node
       # generator. Preserve the full browser output, including nested WASM files.
