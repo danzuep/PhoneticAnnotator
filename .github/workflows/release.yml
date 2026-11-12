@@ -35,7 +35,7 @@ jobs:
         shell: bash
     steps:
       # Start from a trusted base-repository snapshot, never a PR head.
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
@@ -104,7 +104,7 @@ jobs:
           echo "VERSION_WITHOUT_V=${tag#v}" >> "$GITHUB_ENV"
 
       # Only the .NET 10 SDK is configured; no Node.js tooling is needed.
-      - uses: actions/setup-dotnet@v4.3.1
+      - uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: '10.0.x'
       - name: Install native WASM tools
@@ -142,7 +142,7 @@ jobs:
 
       # Keep build results available even if a downstream publishing step fails.
       - name: Retain release artifacts
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-${{ steps.version.outputs.tag }}
           path: ./artifacts/*

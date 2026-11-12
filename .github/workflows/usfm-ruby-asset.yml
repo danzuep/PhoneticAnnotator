@@ -34,8 +34,8 @@ jobs:
       TAG: ${{ inputs.release_tag || 'usfm-ruby' }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: 10.0.x
       - name: Download USFM and add ruby
@@ -45,7 +45,7 @@ jobs:
           dotnet run -c Release --project src/PhoneticAnnotator.Cli -- \
             --data data/Unihan_Readings.txt --language "$LANGUAGE" \
             --usfm-in full.zip --usfm-out "dist/${TRANSLATION}_${LANGUAGE}.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: ${{ env.TRANSLATION }}_${{ env.LANGUAGE }}
           path: dist/${{ env.TRANSLATION }}_${{ env.LANGUAGE }}.zip
