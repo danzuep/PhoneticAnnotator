@@ -1,6 +1,6 @@
 # Phonetic Annotator
 
-Phonetic Annotator is a .NET 10 library with browser-only deployments for adding pronunciation glosses while preserving Unicode offsets and unresolved readings. Both WebAssembly demos include Unicode 18.0.0 Unihan character readings for Mandarin, Cantonese/Jyutping, Japanese, Korean, Vietnamese, and Zhuang, plus a word-lexicon strategy supporting those languages and Arabic. Caller-supplied lexicons use `language<TAB>word<TAB>reading1|reading2` TSV format (see `data/examples/word-readings.tsv`). The CLI remains a developer utility, not a supported desktop deployment target. Build with `dotnet build src/PhoneticAnnotator.slnx`, test with `dotnet test src/PhoneticAnnotator.slnx`, and update Unihan with `pwsh -NoProfile -File scripts/update-unihan.ps1`.
+Phonetic Annotator is a .NET 10 library with browser-only deployments for adding pronunciation glosses while preserving Unicode offsets and unresolved readings. Both WebAssembly demos include Unicode 18.0.0 Unihan character readings for Mandarin, Cantonese/Jyutping, Japanese, Korean, Vietnamese, and Zhuang, plus a word-lexicon strategy supporting those languages and Arabic. Caller-supplied lexicons use `language<TAB>word<TAB>reading1|reading2` TSV format (see `data/examples/word-readings.tsv`). The CLI is also available as a .NET tool for automation. Build with `dotnet build src/PhoneticAnnotator.slnx`, test with `dotnet test src/PhoneticAnnotator.slnx`, and update Unihan with `pwsh -NoProfile -File scripts/update-unihan.ps1`.
 
 ---
 
@@ -325,28 +325,69 @@ do not interpret emulated CI timing as a device-specific performance guarantee.
 
 ### Using in other repositories and CI
 
-Packages are published to NuGet.org (see below) and every GitHub Release carries the
-same `.nupkg` files plus the browser zip.
+The [v0.2.0 release](https://github.com/danzuep/PhoneticAnnotator/releases/tag/v0.2.0)
+contains three .NET 10 packages and the browser SDK. As of v0.2.0:
+
+| Package | Purpose | Availability |
+| --- | --- | --- |
+| [Zue.Unihan](https://www.nuget.org/packages/Zue.Unihan) | Unihan parsing and models | NuGet.org and GitHub Releases |
+| Zue.PhoneticAnnotator.Core | Annotation library; depends on `Zue.Unihan` | GitHub Releases |
+| [Zue.PhoneticAnnotator.Cli](https://www.nuget.org/packages/Zue.PhoneticAnnotator.Cli) | .NET tool providing `phonetic-annotator` | NuGet.org and GitHub Releases |
+
+NuGet publication is a manual opt-in, so check the registry for later versions.
+To use the v0.2.0 core library, download its release package into a local feed
+and restore using both that feed and NuGet.org for dependencies:
 
 ```sh
-dotnet add package Zue.PhoneticAnnotator.Core          # library (pulls in Zue.Unihan)
-dotnet tool install --global Zue.PhoneticAnnotator.Cli # provides `phonetic-annotator`
+mkdir -p packages
+curl -fL https://github.com/danzuep/PhoneticAnnotator/releases/download/v0.2.0/Zue.PhoneticAnnotator.Core.0.2.0.nupkg -o packages/Zue.PhoneticAnnotator.Core.0.2.0.nupkg
+dotnet add package Zue.PhoneticAnnotator.Core --version 0.2.0 --no-restore
+dotnet restore --source ./packages --source https://api.nuget.org/v3/index.json
+```
+
+For subsequent restores, pass the same sources or configure them in
+`NuGet.Config`; keep the local package available to CI.
+
+For the CLI or browser SDK:
+
+```sh
+dotnet tool install --global Zue.PhoneticAnnotator.Cli --version 0.2.0
 gh release download --repo danzuep/PhoneticAnnotator --pattern PhoneticAnnotator-browser.zip
 ```
 
-The CLI does not bundle the Unihan data; pass `--data` (for example
-`data/Unihan_Readings.txt` from this repository) or `--lexicon`. In GitHub Actions
-use the composite action, pinning a release tag:
+The CLI requires the .NET 10 runtime and does not bundle dictionary data. Pass
+`--data` with a Unihan readings file or zip, or `--lexicon` with a word-lexicon
+TSV file. For other CI systems, install the .NET 10 SDK and the tool, supply a
+dictionary, and invoke `phonetic-annotator` directly. Use `--tool-path` instead
+of `--global` if the CI environment does not add global tools to `PATH`.
+
+In another GitHub repository, the following complete workflow fetches the
+dictionary from the same release and invokes the composite action:
 
 ```yaml
-- uses: actions/checkout@v4
-- uses: danzuep/PhoneticAnnotator@v0.1.1
-  with:
-    version: 0.1.1
-    args: --data Unihan_Readings.txt --language zh-HK --usfm-in in.zip --usfm-out out.zip
+name: Annotate text
+on: workflow_dispatch
+jobs:
+  annotate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+      - run: curl -fL https://raw.githubusercontent.com/danzuep/PhoneticAnnotator/v0.2.0/data/Unihan_Readings.txt -o Unihan_Readings.txt
+      - uses: danzuep/PhoneticAnnotator@v0.2.0
+        with:
+          setup-dotnet: 'false'
+          version: 0.2.0
+          args: --data Unihan_Readings.txt --language zh-HK --text 你好 --format json
 ```
 
-Set `setup-dotnet: 'false'` if the .NET 10 SDK is already configured.
+The action installs the tool and writes its output to the job log. It can set
+up the SDK itself when `setup-dotnet` is omitted; `version` defaults to the
+latest stable tool. Its `args` input is split on whitespace, so values or paths
+containing spaces and shell quoting are not supported. For USFM zip processing,
+replace the text arguments with `--usfm-in in.zip --usfm-out out.zip`, supply
+the input file in the job, and upload the output as an artifact if needed.
 
 Merging a pull request into `main` runs `.github/workflows/release.yml`: the latest
 stable `vMAJOR.MINOR.PATCH` tag is bumped according to the PR title

@@ -15,7 +15,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-dotnet@v4
+    - uses: actions/setup-dotnet@v6.1.0
       if: inputs.setup-dotnet == 'true'
       with:
         dotnet-version: 10.0.x
