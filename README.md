@@ -331,22 +331,15 @@ contains three .NET 10 packages and the browser SDK. As of v0.2.0:
 | Package | Purpose | Availability |
 | --- | --- | --- |
 | [Zue.Unihan](https://www.nuget.org/packages/Zue.Unihan) | Unihan parsing and models | NuGet.org and GitHub Releases |
-| Zue.PhoneticAnnotator.Core | Annotation library; depends on `Zue.Unihan` | GitHub Releases |
+| [Zue.PhoneticAnnotator.Core](https://www.nuget.org/packages/Zue.PhoneticAnnotator.Core) | Annotation library; depends on `Zue.Unihan` | NuGet.org and GitHub Releases |
 | [Zue.PhoneticAnnotator.Cli](https://www.nuget.org/packages/Zue.PhoneticAnnotator.Cli) | .NET tool providing `phonetic-annotator` | NuGet.org and GitHub Releases |
 
 NuGet publication is a manual opt-in, so check the registry for later versions.
-To use the v0.2.0 core library, download its release package into a local feed
-and restore using both that feed and NuGet.org for dependencies:
+Install the core library from NuGet.org:
 
 ```sh
-mkdir -p packages
-curl -fL https://github.com/danzuep/PhoneticAnnotator/releases/download/v0.2.0/Zue.PhoneticAnnotator.Core.0.2.0.nupkg -o packages/Zue.PhoneticAnnotator.Core.0.2.0.nupkg
-dotnet add package Zue.PhoneticAnnotator.Core --version 0.2.0 --no-restore
-dotnet restore --source ./packages --source https://api.nuget.org/v3/index.json
+dotnet add package Zue.PhoneticAnnotator.Core --version 0.2.0
 ```
-
-For subsequent restores, pass the same sources or configure them in
-`NuGet.Config`; keep the local package available to CI.
 
 For the CLI or browser SDK:
 
